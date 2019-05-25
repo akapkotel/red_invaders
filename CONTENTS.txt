@@ -1,0 +1,51 @@
+
+Files:
+Beore launching the raw script, make sure, that all the files are on their place. The data structure ater unpacking of this repository should look like:
+
+- game.py
+- test_game.py
+- requirements.txt
+- README.txt
+- config_iles:
+    - player.txt
+    - hostiles.txt
+    - weapons.txt
+    - boosters.txt
+    - levels.txt
+    - README.txt
+- graphics:
+    - player_ship:
+        - 11 png images
+    - hostiles:
+        - 13 png images
+    - explosion:
+        - 40 png images
+    - shots:
+        - 5 png images
+    - boosters:
+        - 7 png images
+    - cursors:
+        - cursor.png
+- sounds:
+    - booster.wav
+    - explosion.wav
+    - explosion_2.wav
+    - hit.wav
+    - laser_shot.wav
+    - rocket.wav
+- test_files:
+    - player.txt
+    - hostiles.txt
+    - weapons.txt
+    - boosters.txt
+    - levels.txt
+    - README.txt
+- installers:
+    - Windows:
+        - some_name.msi
+    - Linux:
+        - some_name.tar.gz
+
+Testing directory and test_game.py aswell as installers directory and files are not requiredto run the raw script.
+In graphics directories you can find 'CONTENTS.txt' with the names of each png file that should be there. You can
+also find this list of contents in the 'CONTENTS.txt' file in the main directory.

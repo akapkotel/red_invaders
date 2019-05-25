@@ -1,0 +1,712 @@
+#!/usr/bin/env python
+"""
+This is a simple in-game menu-builder for Arcade games made in Python. It requires Python3.6 and Arcade2.0.8. Menus are
+basically a bunch of classes defining how Arcade should display clickable elements and what functions to call when they
+are activated.
+
+To make it work you must import it: at least Cursor, Menu and Button classes in your game script. You do not even need
+to make your own implementations of methods.
+
+SharedVariable:
+This class makes it possible to share a common value between many objects in the game and update them dynamically. Just
+assign the SharedVariable instance as variable value.
+
+Menu:
+Menu class to work requires you to pass into it's constructor a single SubMenu object, which would be the main menu of
+your menu-system displayed first when player enters menu (e.g. starts the game). For Menu to work it is also required
+that a Cursor object is initialized - but SubMenu requires it too.
+
+SubMenu:
+SubMenu class to work requires only a list of MenuElement objects (eg. Button), Cursor object initialised in your game,
+and a hook to your arcade.Window object. It's up to you how would you manage the menu in your game, but you can easily
+do that with a single bool variable checked in on_update() method to decide if you want to draw your game or call the
+draw() method of Menu instance.
+
+Cursor:
+Cursor class to work requires only being initialised by your arcade.Window instance and kept as it's attribute to easily
+call it's methods: on_update() and on_draw(), when you want Cursor object to being used.
+
+MenuElement:
+MenuElement class (and all deriving from it, eg, Button) requires only being initialised with whatever functions passed
+to them as callbacks and after you create your Buttons, remember of passing them as a list to the Menu instance. Some
+classes deriving from MenuElement (e.g. Slider) requires SharedVariable objects to be passed as argument.
+
+So, the order of imports, instantiating classes and handling them in your game should be:
+1. SharedVariable - which is the class you need to assign it's instances as the values for all attributes and other
+variables you need to be changed with usage of Slider and RadioButton elements of the Menu
+2. Cursor class object and implement arcade methods: on_mouse_motion(), on_mouse_press(), on_mouse_drag() and
+on_mouse_release() to call the Cursor methods
+3. List of MenuElement objects (e.g. Button) - with at least one element.
+4. (Optional) arcade.Texture object as background for menu
+5. At least one SubMenu class object with List from (2) passed as menu_elements argument, and (optional) texture from
+(3) passed as background argument.
+6. Menu class object with SubMenu from (4) passed as main_menu argument.
+7. Adding Cursor on_update() and Menu update() methods calls to the on_update() method in your game.
+8. Adding Cursor draw() and Menu draw() methods calls to the on_draw() method in your game.
+9. Logic determining if Menu and Cursor should be updated and drawn in current frame are up to you.
+
+9. If you need multi-level menu, you must instantiate some SubMenu objects with their own lists of MenuElements and set
+the callbacks to toggle_submenu() method of your Menu with the 'name' of your SubMenu as argument.
+
+IMPORTANT: app_hook attribute of Menu and Cursor must be the same arcade.Window object!
+"""
+__author__ = "Rafał Trąbski"
+__copyright__ = "Copyright 2019"
+__credits__ = []
+__license__ = "Share Alike Attribution-NonCommercial-ShareAlike 4.0"
+__version__ = "1.0.0"
+__maintainer__ = "Rafał Trąbski"
+__email__ = "rafal.trabski@mises.pl"
+__status__ = "Development"
+
+import arcade
+
+WHITE, GRAY, BLACK, GREEN = arcade.color.WHITE, arcade.color.GRAY, arcade.color.BLACK, arcade.color.GREEN
+
+
+def normalize(value: float, minimum: float, maximum: float):
+    """Keep variable value in range of min and max values."""
+    if value < minimum:
+        return minimum
+    elif value > maximum:
+        return maximum
+    else:
+        return value
+
+
+class SharedVariable:
+    """
+    SharedVariable makes it available to connect attributes of your arcade.Window class or other classes from your
+    script to the Slider or RadioButton elements of the Menu so when these are used, values of connected attributes
+    change to.
+
+    When declaring a attribute, just assign as it's value a new instance of SharedVariable class passing
+    the starting value as first argument, and the empty list as second:
+
+    Optionally, if there are other variables you need to be changed when this one changes, put them into the list
+    passed as second argument.
+
+    You can always add another 'associated' variable or attribute, using the 'add_associate()' method, or remove the
+    connection with 'remove_associate()' passing the variable, which should be associated or unassociated.
+    """
+
+    shared_variables = []  # 'public' list of all the SharedVariable instances used by the Menu class
+
+    def __init__(self, value: int or float or str, associated_objects: list):
+        """
+        SharedVariable is an internal object used to assure that value of variables assigned to different objects in the
+        application, especially to the MenuElement objects and arcade.Window attributes, will be the same.
+
+        :param value: int, float or str -- value of variable assigned to this shared object
+        :param associated_objects: list -- list of the objects associated to the value and updated accordingly
+        """
+        self.value = value
+        self.associated_objects = associated_objects
+        SharedVariable.shared_variables.append(self)
+
+    def add_associate(self, associated_object: object):
+        """
+        Add new association to this SharedVariable.
+
+        :param associated_object: object -- an variable which should be updated when this SharedVariable changes
+        """
+        self.associated_objects.append(associated_object)
+
+    def remove_associate(self, removed_object: object):
+        """
+        Delete the association to this SharedVariable.
+
+        :param removed_object: object -- an external variable which should be unassociated
+        """
+        self.associated_objects.remove(removed_object)
+
+    def update(self):
+        """
+        Update the value of each object associated to the SharedVariable.
+        """
+        for i in range(0, len(self.associated_objects) - 1):
+            self.associated_objects[i] = self.value
+
+
+class Cursor(arcade.Sprite):
+    """
+    TODO: write raw Cursor abstract class [ ], test it [ ]
+    """
+
+    def __init__(self,
+                 app_hook: arcade.Window,
+                 filepath: str,
+                 filename: str,
+                 angle: int = 30,
+                 menu_only: bool = True,
+                 hide_os_cursor: bool = True):
+        """
+        Basic placeholder for a in-game cursor displayed instead of the user's system cursor.
+
+        :param app_hook: arcade.Window object -- instance of arcade.Window class required for Menu functions to work
+        with the app
+        :param filepath: str -- absolute TESTS_PATH to the cursor image
+        :param filename: str -- name of the cursor image
+        :param angle: int -- angle in degrees (default: 30)
+        :param menu_only: bool -- if the cursor should be displayed only in the game menu (default: True)
+        :param hide_os_cursor: bool -- if system cursor should be hidden and replaced with this one (default: True)
+        """
+        super().__init__(filepath + filename + ".png")
+        self.application = app_hook
+
+        self.current_element = None
+
+        self.angle = angle
+
+        self.menu_only = menu_only
+
+        self.cursors = arcade.SpriteList()
+        self.cursors.append(self)
+
+        if hide_os_cursor: self.application.set_mouse_visible(False)
+
+    def check_if_above_menu_element(self):
+        """Check if game-cursor object overlaps any o the game-menu buttons, sliders etc."""
+        for element in self.application.menu.current_elements:
+            if element.check_if_cursor_above(self.center_x, self.top):
+                if not element.mouse_above:
+                    element.on_mouse_over()
+                    self.current_element = element
+            else:
+                if element.mouse_above:
+                    element.on_mouse_over()
+                    self.current_element = None
+
+    def on_mouse_motion(self, x: float, y: float, in_menu: bool):
+        """
+        This method should be called by the on_mouse_motion() method of arcade.Window application which you need this
+        Cursor to work with. Your on_mouse_motion() should look like this:
+
+        def on_mouse_motion(self, x: float, y: float, dx: float, dy: float):
+            '''docstring'''
+            self.cursor.on_mouse_motion(x, y, self.in_menu)
+
+        Where 'self.cursor' is an attribute referencing this Cursor object in your arcade.Window instance, and the
+        'self.in_menu' is a bool attribute used to check if Menu object is currently active and displayed in game.
+
+        :param float x: x position of mouse
+        :param float y: y position of mous
+        :param in_menu: bool -- if Menu object is currently displayed and Cursor should be updated
+        """
+        if (self.application.cursor.menu_only and in_menu) or (not self.application.cursor.menu_only):
+            self.set_position(x, y)
+            self.check_if_above_menu_element()
+
+    def on_mouse_press(self, button: int, in_menu: bool):
+        """
+        Handle mouse-buttons press only when game-menu is displayed. Otherwise mouse cursor is hidden. This method
+        should be called by the on_mouse_motion() method of arcade.Window application which you need this Cursor to work
+        with.
+
+        :param button: int -- What button was hit. One of: arcade.MOUSE_BUTTON_LEFT, arcade.MOUSE_BUTTON_RIGHT,
+        arcade.MOUSE_BUTTON_MIDDLE
+        :param in_menu: bool -- if Menu object is currently displayed and Cursor should be updated
+        """
+        if in_menu and button == arcade.MOUSE_BUTTON_LEFT and self.current_element is not None:
+            self.current_element.on_press()
+
+    def on_mouse_release(self, button: int, in_menu: bool):
+        """
+        Handle mouse buttons release events.
+
+        :param button: int -- What button was hit. One of: arcade.MOUSE_BUTTON_LEFT, arcade.MOUSE_BUTTON_RIGHT,
+        arcade.MOUSE_BUTTON_MIDDLE
+        :param in_menu: bool -- if Menu object is currently displayed and Cursor should be updated
+        """
+        if in_menu and button == arcade.MOUSE_BUTTON_LEFT and self.current_element is not None:
+            self.current_element.on_release()
+
+    def on_mouse_drag(self, x: float, y: float, dx: float, dy: float, buttons: int, modifiers: int):
+        """
+        This method should be called by the on_mouse_drag() method of arcade.Window application which you need this
+        Cursor to work with.
+        """
+        if isinstance(self.current_element, Slider):
+            self.current_element.on_drag(dx)
+
+    def on_update(self):
+        """
+        Updates Cursor object calling arcade.SpriteList.update() method. This method should be added to the main game
+        on_update() method.
+        """
+        self.cursors.update()
+
+    def draw(self):
+        """
+        Updates Cursor object calling arcade.SpriteList.draw() method. This method should be added to the main game
+        on_draw() method.
+        """
+        self.cursors.draw()
+
+
+class Menu:
+    """
+    This class is the core of in-game-menu system. Menu class contains all the SubMenu instances (lower-level menus) and
+    at least one main menu (highest-level SubMenu with 'main' attribute set to True). Menu methods provides way to easy
+    navigation between SubMenu instances it contains and handles updating and displaying their elements.
+    """
+
+    def __init__(self, app_hook: arcade.Window, main_menu):
+        """
+        New Menu object constructor. Menu-object contains a hook used to reference the caller, which should be an class
+        inheriting from arcade.Window class. It also keeps a register of the menu-interactive objects, like buttons etc.
+        along with the callbacks bound to them.
+
+        :param app_hook: arcade.Window object -- instance of arcade.Window class required for Menu functions to work
+        with the app
+        :param main_menu: simple_arcade_menu.SubMenu object -- main menu to be displayed when player enters menu in game
+        """
+        self.application = app_hook
+
+        self.submenus = {}
+        self.shared_variables = SharedVariable.shared_variables
+
+        self.current_elements = None
+        self.current_background = None
+
+        self.add_submenu(main_menu)
+        self.toggle_submenu(main_menu.name)
+
+    def add_submenu(self, submenu):
+        """
+        Register new menu elements (Buttons, CheckButtons, Sliders etc.) and backgrounds as the submenu of this Menu. It
+        is possible to toggle active submenu (set of MenuElements and backgrounds) and navigate through multi-leveled
+        menus. Main Menu submenu is also registered with this method.
+
+        :param submenu: simple_arcade_menu.SubMenu object -- submenu to be added to the current Menu
+        """
+        self.submenus[submenu.name] = submenu
+
+    def toggle_submenu(self, submenu_name: str):
+        """
+        Navigate from current submenu to another one. Load it's MenuElements and background. Call this method in your
+        arcade.Window to change submenu which is displayed - just pass the string name of desired SubMenu object you
+        registered into the Menu.
+
+        :param submenu_name: str -- name of the submenu to open
+        """
+        self.current_elements = self.submenus[submenu_name].elements
+        self.current_background = self.submenus[submenu_name].background
+
+    def update(self):
+        """Update all the Menu attributes values."""
+        for element in self.current_elements:
+            element.update()
+        for shared in self.shared_variables:
+            shared.update()
+
+    def draw(self):
+        """
+        Display menu buttons and background accordingly to what 'submenu' from self.submenus is currently active and set
+        as self.current_submenu.
+        """
+        if self.current_background is not None:
+            width, height = self.application.width, self.application.height
+            arcade.draw_texture_rectangle(width / 2, height / 2, width, height, self.current_background)
+
+        for element in self.current_elements:
+            element.draw()
+
+
+class SubMenu:
+    """A submenu is just a string name, bunch of MenuElements put into the list and background image. Menu navigates
+    through its SubMenus to offer user multi-leveled menus in games."""
+
+    def __init__(self, name: str = "MainMenu", menu_elements: list = None, background=None, main=False):
+        """
+        You need at least one instance of SubMenu to pass it as argument to the Menu constructor,
+
+        :param name: str -- name of the submenu, would be used to navigate in Menu object (default: 'MainMenu')
+        :param menu_elements: list -- list of MenuElements this SubMenu object should display when activated. Each
+        button request must be an instance of Menu.Button object. See the '__init__' method for it' initializing
+        parameters.
+        :param background: arcade.load_texture() -- an image displayed as this SubMenu background, make sure that it's
+        size is not larger than arcade.Window size.
+        :param main: bool -- if this is a top-level SubMenu of Menu (if not, pressing ESC would move player out to the
+        top-level SubMenu.
+        """
+        self.name = name
+        self.is_main_menu = main
+        self.elements = menu_elements
+        self.background = background
+
+
+class MenuElement:
+    """
+    TODO: write abstract class for basic mMenu-widget [ ], make Button ihnerit from it [ ], test it [ ]
+    """
+
+    def __init__(self,
+                 name: str = "MenuElement",
+                 pos_x: float = 0.0,
+                 pos_y: float = 0.0,
+                 function: callable = None):
+        """
+
+        :param name:
+        :param pos_x:
+        :param pos_y:
+        :param function:
+        """
+        self.name = name
+        self.center_x = pos_x
+        self.center_y = pos_y
+        self.function = function
+        self.mouse_above = False
+
+    def check_if_cursor_above(self, cursor_x: float, cursor_y: float):
+        """
+        Compare x and y coordinates of Cursor object ant this Element (or coords of part of this Element). This method
+        is called by the Cursor object each frame it moves. Implement this in the deriving classes.
+
+        :param cursor_x: float -- x coordinate of Cursor object
+        :param cursor_y: float -- y coordinate of Cursor object
+        :return: bool -- if the Cursor is considered as hovering over the MenuElement
+        """
+        pass
+
+    def on_press(self):
+        """
+        Function called when Cursor object receives 'click' event on this Element. Called automatically by the Menu
+        class. Implement this in the deriving classes.
+        """
+        pass
+
+    def on_drag(self, drag: float):
+        """
+        Called when Cursor left button is pressed over this Element and moved. Called automatically by the Menu class.
+        Implement this in the deriving classes.
+        """
+        pass
+
+    def on_release(self):
+        """
+        Called when Cursor button is released above this Element. Called automatically by the Menu class. Implement this
+        in the deriving classes.
+        """
+        pass
+
+    def on_mouse_over(self):
+        """
+        Called when the Cursor is hoovering above this Element. Called automatically by the Menu class. Implement this
+        in the deriving classes.
+        """
+        pass
+
+    def update(self):
+        """
+        Update attributes of this Element. Called automatically by the Menu class. Implement this in the deriving
+        classes.
+        """
+        pass
+
+    def draw(self):
+        """
+        Display this button on the screen. Called automatically by the Menu class. Implement this in the deriving
+        classes.
+        """
+        pass
+
+
+class Button(MenuElement):
+    """
+    Each Button object is a simple data-container used by the Arcade module to draw ui elements and call unctions.
+    """
+
+    # TODO: sizes and padding of buttons depending on the screen height and width (constants?)
+
+    def __init__(self,
+                 name: str = "Button",
+                 pos_x: float = 0.0,
+                 pos_y: float = 0.0,
+                 width: float = None,
+                 height: float = None,
+                 border_width: int = 3,
+                 button_color: arcade.color = GRAY,
+                 highlight_color: arcade.color = WHITE,
+                 border_color: arcade.color = BLACK,
+                 text_color: arcade.color = BLACK,
+                 font_size: int = 20,
+                 image=None,
+                 function: callable = None):
+        """
+        Initializing a new button remember to set up the function as 'function' parameter, otherwise button would do
+        nothing, when pressed.
+
+        :param name: str -- name of the button
+        :param pos_x: int -- x coordinate of the button's center
+        :param pos_y: int -- y coordinate
+        :param width: int -- width of the button
+        :param height: int -- height of the button
+        :param border_width: int -- thickness of the button's outline, if 0, outline does not exist (default: 0)
+        :param button_color: arcade.color -- color of the button (default: gray)
+        :param highlight_color: arcade.color -- color of the button when cursor hoovers above it (default: white)
+        :param border_color: arcade.color -- color of the button's outline (default: black)
+        :param text_color: arcade.color -- color of the button's name (default: black)
+        :param font_size: int -- size of the button text
+        :param image: arcade.load_texture() -- an optional texture to be displayed as button's background
+        :param function: function() -- function called when button is pressed, pass it WITHOUT parentheses!
+        """
+        super().__init__(name, pos_x, pos_y, function)
+
+        self.color = button_color
+        self.highlight_color = highlight_color
+        self.border_color = border_color
+        self.text_color = text_color
+        self.current_color = button_color  # actual button_color of the button
+
+        self.font_size = font_size
+        self.width = (len(name) * font_size) if width is None else width
+        self.height = 3 * font_size if height is None else height
+        self.border_width = border_width
+        self.left = self.center_x - (self.width / 2)
+        self.right = self.left + self.width
+        self.top = self.center_y + (self.height / 2)
+        self.bottom = self.top - self.height
+
+        self.image = image
+        self.image_alpha = 255
+
+    def check_if_cursor_above(self, cursor_x: float, cursor_y: float):
+        """"""
+        return self.left < cursor_x < self.right and self.bottom < cursor_y < self.top
+
+    def on_mouse_over(self):
+        """
+        Change button color when mouse-cursor hoovers over it, and set back normal color, when it is not.
+        """
+        self.mouse_above = not self.mouse_above
+
+    def on_press(self):
+        """
+        Call self.unction when button is pressed.
+        """
+        if self.function is not None:
+            self.function()
+
+    def update(self):
+        if self.image is not None:
+            self.image_alpha = 125 if self.mouse_above else 255
+        else:
+            self.current_color = self.highlight_color if self.mouse_above else self.color
+
+    def draw(self):
+        """Display this button on the screen."""
+        if self.image is None:
+            arcade.draw_lrtb_rectangle_filled(self.left, self.right, self.top, self.bottom, self.current_color)
+            arcade.draw_text(self.name, self.left + self.font_size, self.bottom + (self.height / 3), self.text_color,
+                             self.font_size, align="center", anchor_x="left")
+            if self.border_width > 0:
+                arcade.draw_lrtb_rectangle_outline(self.left - 1, self.right + 1, self.top + 1, self.bottom - 1,
+                                                   self.border_color, self.border_width)
+        else:
+            # TODO: drawing the button's image background [ ], test it [ ]
+            pass
+
+
+class Slider(MenuElement):
+    """
+    TODO: element sliding left and right when player mouse-drags on it [ ], changing connected variable value [ ]
+    """
+
+    def __init__(self,
+                 variable: SharedVariable,
+                 variable_name: str,
+                 variable_min: int or float,
+                 variable_max: int or float,
+                 font: tuple = ("calibri", "arial"),
+                 font_size: float = None,
+                 pos_x: float = 0.0,
+                 pos_y: float = 0.0,
+                 width: float = 300.0,
+                 height: float = 20.0,
+                 border_color: arcade.Color = BLACK,
+                 slide_color: arcade.Color = GRAY,
+                 slider_color: arcade.Color = WHITE,
+                 function: callable = None):
+        """
+        Basic slider - button moveable to some extent to the left and right, and changing value of connected variable
+        when it is slided. Left move decreases value, move to the right increases it.
+
+        :param variable_name: str -- name of the variable associated with the Slider, displayed above it in Menu
+        :param variable_min: int or float -- minimum value of variable associated with the Slider
+        :param variable_max: int or float -- maximum value of variable associated with the Slider
+        :param font: tuple -- name of the font used for name of the Slider displayed above it
+        :param font_size: float -- size of the font (if None, which is default, size would depend on 'height' param)
+        :param pos_x: float -- x coordinate of the Slider center (default: 0.0)
+        :param pos_y: float -- y coordinate (default: 0.0)
+        :param width: float -- width of the Slider (default: 400.0)
+        :param height: float -- height of the Slider (default: 40.0)
+        :param variable: SharedVariable object -- object which is associated with the value of the Slider
+        :param function: callable -- a function which would be called when Slider is released after being moved
+        """
+        super().__init__(variable_name, pos_x, pos_y, function)
+
+        self.width = width
+        self.height = height
+        self.left = self.center_x - (self.width / 2)
+        self.right = self.left + self.width
+        self.top = self.center_y + (self.height / 2)
+        self.bottom = self.top - self.height
+
+        self.variable = variable
+        self.variable_name = variable_name
+        self._variable_min = variable_min
+        self._variable_max = variable_max
+        self.font = font
+        self.font_size = font_size if font_size else self.height / 2
+
+        # used to calculate variable values when Slider moves:
+        self.scale = (self.right - self.left) / (self._variable_max - self._variable_min)
+        self.slider_position = self.left + self.variable.value * self.scale
+        self.dragged = False  # this variable controls if Slider is moved by the Player or not
+
+        self.slide_color = slide_color
+        self.border_color = border_color
+        self.slider_color = slider_color
+        self.slider_current_color = self.slider_color
+
+        self._var_cur_val = self.variable.value  # current value of the variable connected to the Slider
+
+    def check_if_cursor_above(self, cursor_x: float, cursor_y: float):
+        """Check if Cursor object is inside of the Slider control handle."""
+        return abs(self.slider_position - cursor_x) < self.height and abs(self.center_y - cursor_y) < self.height
+
+    def on_press(self):
+        """Start Slider being dragged when mouse left button is clicked on it."""
+        self.dragged = True
+
+    def on_drag(self, drag: float):
+        """Implement this in the deriving classes."""
+        self.slider_position += drag
+        self.slider_position = normalize(self.slider_position, self.left, self.right)
+        self._var_cur_val = self.set_variable()
+
+    def on_release(self):
+        """Stop Slider being dragged when mouse left button is released."""
+        if self.dragged:
+            self.dragged = False
+            self.variable.value = self._var_cur_val
+
+    def on_mouse_over(self):
+        """Implement this in the deriving classes."""
+        if self.mouse_above:
+            self.mouse_above = False
+            self.on_release()
+        else:
+            self.mouse_above = True
+
+    def update(self):
+        """Update the widget state."""
+        self.slider_current_color = arcade.color.GREEN if self.mouse_above else self.slider_color
+
+    def draw(self):
+        """
+        Display this Slider on the screen.
+        """
+        # Slider name:
+        arcade.draw_text(self.variable_name.title(), self.left, self.top + self.height / 2, WHITE, self.font_size)
+        # Slider rail:
+        arcade.draw_rectangle_filled(self.center_x, self.center_y, self.width, self.height, self.slide_color)
+        arcade.draw_rectangle_outline(self.center_x, self.center_y, self.width + 2, self.height + 2, self.border_color)
+        # Slider handle:
+        arcade.draw_circle_filled(self.slider_position, self.center_y, self.height / 1.5, self.slider_current_color)
+        arcade.draw_circle_outline(self.slider_position, self.center_y, (self.height / 1.5) + 2, self.border_color)
+        # Variable value:
+        arcade.draw_text(str(self._var_cur_val), self.right, self.top + self.height / 2, GREEN, self.font_size,
+                         anchor_x="right")
+
+    def set_variable(self):
+        """Change value of variable connected to the Slider when it was moved left or right."""
+        value = self._variable_min + (self.slider_position - self.left) / self.scale
+        return value if isinstance(self._variable_min, float) else int(value)
+
+
+class CheckButton(Button):
+    """
+    TODO: check-button widget [ ], test it [ ]
+    """
+
+
+class TextLabel(MenuElement):
+    """
+    TODO: short text-element for displaying e.g. titles, names of menus etc. [ ], test it [ ]
+    """
+
+    def __init__(self,
+                 name: str = "MenuElement",
+                 pos_x: float = 0.0,
+                 pos_y: float = 0.0,
+                 text: str = "",
+                 font: tuple = ("calibri", "arial"),
+                 text_size: float = 12,
+                 function: callable = None):
+        """
+        Initialize new TextField, which is basically a rectangle with text. User can define what color should the
+        rectangle (background) have, color of text etc.
+
+        :param text: str -- text to be displayed by the TextLabel element, must be on-liner (default: empty string)
+        """
+        super().__init__(name, pos_x, pos_y, function)
+        self.font = font
+        self.text_size = text_size
+        self._text = text
+
+    def set_text(self, text: str):
+        """Change text value of the TextField element."""
+        self._text = text
+
+    def get_text(self):
+        """Read text value of this element."""
+        return self._text
+
+
+class TextField(TextLabel):
+    """
+    TODO: long, multi-line field displaying string passed to it in constructor [ ] or setter [ ], test it [ ]
+    """
+
+    def __init__(self,
+                 name: str = "MenuElement",
+                 pos_x: float = 0.0,
+                 pos_y: float = 0.0,
+                 text: str = "",
+                 font: tuple = ("calibri", "arial"),
+                 text_size: float = 12,
+                 function: callable = None):
+        """
+        Initialize new TextField, which is basically a rectangle with text. User can define what color should the
+        rectangle (background) have, color of text etc.
+
+        :param text: str -- text to be displayed by the TextLabel element, must be on-liner (default: empty string)
+        """
+        super().__init__(name, pos_x, pos_y, text, font, text_size, function)
+        self.font = font
+        self.text_size = text_size
+        self._text = self.reformat_text(text)
+
+    def set_text(self, text: str):
+        """Change text value of the TextField element, but before reformat text to make it fit the filed constraints."""
+        self._text = self.reformat_text(text)
+
+    @staticmethod
+    def reformat_text(text):
+        """
+        Fold and reformat text string to assure that it will fit to the field constraints.
+
+        :param text: str -- text to be reformatted
+        :return: str -- text to be usewd as self._text value.
+        """
+        # TODO: formatting text to assure that it will be folded as user wanted [ ][ ][ ], test it [ ]
+        return text
+
+
+class UserInput(MenuElement):
+    """
+    TODO: a field which accepts user-input [ ], saves it to the variable [ ], and have getter to retrieve it's value [ ]
+    """
