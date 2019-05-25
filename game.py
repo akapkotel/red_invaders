@@ -104,7 +104,7 @@ def load_config_files(path: str = CONFIG_PATH):
     player_data, hostiles_data, powerups_data, levels_data, weapons_data = {}, {}, {}, {}, {}
     player_, hostiles_, powerups_, levels_, weapons_ = "player.txt", "hostiles.txt", "powerups.txt", "levels.txt", \
                                                        "weapons.txt"
-
+    # TODO: more robust file reading and converting system [x][ ][ ]
     with open(player_, "r") as pl, open(hostiles_, "r") as h, open(powerups_, "r") as pu, open(levels_, "r") as L, \
             open(weapons_, "r") as w:
         for file in [pl, h, pu, L, w]:
@@ -128,7 +128,7 @@ def load_config_files(path: str = CONFIG_PATH):
                         player_data[SPEED] = float(elem.split(" = ")[1])
                     elif cat in [ROCKETS, SHIELD]:
                         player_data[elem.split(" = ")[0]] = int(elem.split(" = ")[1])
-            elif file == h:  # TODO: find more robust way to convert data from file to dict of dicts [x][ ][ ]
+            elif file == h:
                 for elem in file_unpacked:
                     data = elem.split(" = ")
                     if data[0] == HOSTILES:
@@ -174,7 +174,7 @@ def load_config_files(path: str = CONFIG_PATH):
                 # TODO: levels logic and then levels config unpacking [ ], test it [ ]
                 continue
             elif file == w:
-                # TODO: weapons unpacking from data [x], test it [x][ ]
+                # TODO: weapons unpacking from data [x], test it [x][x]
                 for elem in file_unpacked:
                     cat, data = elem.split(" = ")[0], elem.split(" = ")[1]
                     if cat in [SPEED, DAMAGES, ROF]:
@@ -285,7 +285,7 @@ class Spaceship(SpaceObject):
         """
         for slot in self.gun_slots:
             play_sound(weapons[SOUNDS][self.main_weapon])
-            if isinstance(self, Playership):
+            if isinstance(self, PlayerShip):
                 power = self.powerup_damage_mod
             else:
                 power = 1
@@ -369,10 +369,12 @@ class Spaceship(SpaceObject):
         game.explosions.append(Explosion(self.center_x, self.center_y))  # just an animated sprite
 
 
-class Playership(Spaceship):
+class PlayerShip(Spaceship):
     """
     Subclass for the player ship.
     """
+
+    RIGHT, LEFT, UP, DOWN, STOP = SPACESHIP_STRAFE, -SPACESHIP_STRAFE, SPACESHIP_SPEED, -SPACESHIP_SPEED, 0
 
     def __init__(self, textures_list: list):
         super().__init__("player_ship/" + textures_list[0])
@@ -386,6 +388,9 @@ class Playership(Spaceship):
         if self.rockets: self.rearm(weapons[ROCKETS][1])
         self.shooting = False
         self.overheat = 0
+
+        self.horizontal = PlayerShip.STOP
+        self.vertical = PlayerShip.STOP
 
     def load_textures(self, textures_list: list):
         """
@@ -422,25 +427,32 @@ class Playership(Spaceship):
 
     def toggle_shooting(self):
         """
-        Switch between 'shooting' and 'not-shooting' modes. If self.shooting is True, Playership would fire it's main
+        Switch between 'shooting' and 'not-shooting' modes. If self.shooting is True, PlayerShip would fire it's main
         weapon as fast as it's ROF variable permits for, and as long as self.overheat is not >= 100.
         """
         self.shooting = not self.shooting
 
     def update(self):
         super().update()
-        # update texture accordingly to the movement (to show work of engines):
+
+        self.update_movement()  # set the movement accordingly to the keys pressed by player
+
         self.check_for_collisions()
 
-        self.update_texture()
+        self.update_texture()  # update texture accordingly to the movement (to show work of engines):
 
         self.manage_booster_effects()
 
         if all((self.shooting, self.last_shot is not None, game.game_time - self.last_shot >= self.rate_of_fire)):
             game.shots_fired += 1
             self.last_shot = game.game_time
-            self.overheat += 5
+            self.overheat += 5  # TODO: overheating system [ ]
             self.shoot()
+
+    def update_movement(self):
+        """Set the movement speed values accordingly to the key pressed by the player."""
+        self.change_x = self.horizontal
+        self.change_y = self.vertical
 
     def check_for_collisions(self):
         """
@@ -765,6 +777,7 @@ class Projectile(SpaceObject):
         """
         if not self.target and len(game.hostiles) > 0:  # acquire target if has any and there are possible targets
             if self.angle == UPWARD:  # if rocket fired by player
+                # TODO: rockets ignoring targets already acquired by other rockets and take next one [ ]
                 self.target = arcade.get_closest_sprite(self, game.hostiles)[0]  # closest enemy ship
             else:
                 self.target = game.player
@@ -861,7 +874,7 @@ class Explosion(SpaceObject):
 
     def __init__(self, x, y):
         super().__init__("explosion/explosion0000")
-        for i in range(41):
+        for i in range(40):
             if i < 10:
                 zeros = "000"
             else:
@@ -1095,9 +1108,9 @@ class Game(arcade.Window):
     def spawn_player(self):
         """
         Crate player spaceship instance and add it to the self.players spritelist.
-        :return: Playership instance
+        :return: PlayerShip instance
         """
-        new_player = Playership(player[TEXTURE])
+        new_player = PlayerShip(player[TEXTURE])
         self.players.append(new_player)
         return new_player
 
@@ -1351,13 +1364,13 @@ class Game(arcade.Window):
                 self.toggle_pause()
             if not self.paused:
                 if key == arcade.key.W or key == arcade.key.UP:
-                    self.player.change_y = SPACESHIP_SPEED
+                    self.player.vertical = PlayerShip.UP
                 if key == arcade.key.S or key == arcade.key.DOWN:
-                    self.player.change_y = -SPACESHIP_STRAFE
+                    self.player.vertical = PlayerShip.DOWN
                 if key == arcade.key.A or key == arcade.key.LEFT:
-                    self.player.change_x = -SPACESHIP_STRAFE
+                    self.player.horizontal = PlayerShip.LEFT
                 if key == arcade.key.D or key == arcade.key.RIGHT:
-                    self.player.change_x = SPACESHIP_STRAFE
+                    self.player.horizontal = PlayerShip.RIGHT
                 if key == arcade.key.SPACE:
                     self.player.toggle_shooting()
                 if key == arcade.key.R:
@@ -1397,13 +1410,13 @@ class Game(arcade.Window):
         """
         if not self.paused and self.players:
             if key == arcade.key.W or key == arcade.key.UP:
-                self.player.change_y = 0
+                self.player.vertical = PlayerShip.STOP
             if key == arcade.key.S or key == arcade.key.DOWN:
-                self.player.change_y = 0
+                self.player.vertical = PlayerShip.STOP
             if key == arcade.key.A or key == arcade.key.LEFT:
-                self.player.change_x = 0
+                self.player.horizontal = PlayerShip.STOP
             if key == arcade.key.D or key == arcade.key.RIGHT:
-                self.player.change_x = 0
+                self.player.horizontal = PlayerShip.STOP
             if key == arcade.key.SPACE:
                 self.player.toggle_shooting()
 
