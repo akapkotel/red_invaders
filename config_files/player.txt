@@ -1,0 +1,19 @@
+# player.txt
+# Config file for player's ship. Do not delete nor rename this file!
+# WARNING: modifying this file could crash or break the game! Make a backup!
+
+# texture file names should be writte without extensions!
+texture = player_ship; player_ship_W; player_ship_WD; player_ship_WA; player_ship_A; player_ship_D; player_ship_S; player_ship_SD; player_ship_SA; player_ship_shield; player_ship_hit
+
+# starting health of the player's ship
+health = 10
+
+# speeds are hardcoded in game logic, this value should be used as modiffier
+# eg. if you want the ship to be twice as fast, set this value to 2 etc.
+speed = 1
+
+weapon = player_laser_blue
+
+rockets = 1
+
+shield = 0

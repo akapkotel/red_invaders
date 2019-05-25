@@ -1,0 +1,18 @@
+# hostiles.txt
+# Config file for enemies. Do not delete nor rename this file!
+# WARNING: modifying this file could crash or break the game! Make a backup!
+
+# IMPORTANT: distinct enemies must be separated with ; symbol.
+hostiles = hostile_ship_1; hostile_ship_2; hostile_ship_3; hostile_ship_4
+preferred_min_distance = hostile_ship_1: 0.5; hostile_ship_2: 0.6; hostile_ship_3: 0.7; hostile_ship_4: 0.5
+preferred_max_distance = hostile_ship_1: 0.9; hostile_ship_2: 0.8; hostile_ship_3: 0.8; hostile_ship_4: 0.9
+ratings = hostile_ship_1: 1; hostile_ship_2: 2; hostile_ship_3: 4; hostile_ship_4: 5
+speed = hostile_ship_1: 0.8; hostile_ship_2: 0.7; hostile_ship_3: 0.6; hostile_ship_4: 0.5
+health = hostile_ship_1: 10; hostile_ship_2: 10; hostile_ship_3: 20; hostile_ship_4: 20
+shield = hostile_ship_1: 0; hostile_ship_2: 20; hostile_ship_3: 30; hostile_ship_4: 40
+scores = hostile_ship_1: 10; hostile_ship_2: 25; hostile_ship_3: 50; hostile_ship_4: 75
+# IMPORTANT: for each enemy, first value (before comma) means number of guns, second (after comma) is the type of weapon.
+weapon = hostile_ship_1: 1, hostile_laser_red; hostile_ship_2: 2, hostile_laser_red; hostile_ship_3: 2, hostile_laser_red; hostile_ship_4: 1, hostile_laser_red
+# IMPORTANT: distinct turrets of a ship must be separated with | symbol.
+turrets = hostile_ship_4: turret_small, hostile_laser_red, 0, -12, 90, 1
+rockets = hostile_ship_1: 0; hostile_ship_2: 0; hostile_ship_3: 0

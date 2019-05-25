@@ -1,0 +1,12 @@
+# weapons.txt
+# Config file for weapons. Do not delete nor rename this file!
+# WARNING: modifying this file could crash or break the game! Make a backup!
+# remember, that the separator is "; "
+damages = player_laser_blue: 10; hostile_laser_red: 10; player_rocket: 50; hostile_rocket: 40; player_autocannon: 10; hostile_autocannon: 10
+rof = player_laser_blue: 5; hostile_laser_red: 5; player_rocket: 60; hostile_rocket: 60; player_autocannon: 10; hostile_autocannon: 10
+# how fast shots fired from the gun would go toward the enemy:
+speed = player_laser_blue: 30; hostile_laser_red: 30; player_rocket: 15; hostile_rocket: 15; player_autocannon: 20; hostile_autocannon: 20
+sounds = player_laser_blue: laser_shot.wav; hostile_laser_red: laser_shot.wav; player_rocket: rocket.wav; hostile_rocket: rocket.wav; player_autocannon: autocannon.wav; hostile_autocannon: autocannon.wav
+kinetics = player_autocannon, hostile_autocannon
+lasers = player_laser_blue; hostile_laser_red
+rockets = hostile_rocket; player_rocket
