@@ -4,6 +4,16 @@ This is a simple in-game menu-builder for Arcade games made in Python. It requir
 basically a bunch of classes defining how Arcade should display clickable elements and what functions to call when they
 are activated.
 
+1. INSTALLATION:
+To install simple_arcade_menu just open terminal and write:
+
+TODO: pip3 install simple_arcade_menu
+
+To check if everything works fine:
+
+TODO: test template
+
+2. USAGE:
 To make it work you must import it: at least Cursor, Menu and Button classes in your game script. You do not even need
 to make your own implementations of methods.
 
@@ -35,12 +45,12 @@ So, the order of imports, instantiating classes and handling them in your game s
 1. SharedVariable - which is the class you need to assign it's instances as the values for all attributes and other
 variables you need to be changed with usage of Slider and RadioButton elements of the Menu
 2. Cursor class object and implement arcade methods: on_mouse_motion(), on_mouse_press(), on_mouse_drag() and
-on_mouse_release() to call the Cursor methods
+on_mouse_release() to call the Cursor methods instead.
 3. List of MenuElement objects (e.g. Button) - with at least one element.
 4. (Optional) arcade.Texture object as background for menu
-5. At least one SubMenu class object with List from (2) passed as menu_elements argument, and (optional) texture from
-(3) passed as background argument.
-6. Menu class object with SubMenu from (4) passed as main_menu argument.
+5. At least one SubMenu class object with List from (3) passed as menu_elements argument, and (optional) texture from
+(4) passed as background argument.
+6. Menu class object with SubMenu from (5) passed as main_menu argument.
 7. Adding Cursor on_update() and Menu update() methods calls to the on_update() method in your game.
 8. Adding Cursor draw() and Menu draw() methods calls to the on_draw() method in your game.
 9. Logic determining if Menu and Cursor should be updated and drawn in current frame are up to you.
@@ -59,6 +69,7 @@ __maintainer__ = "Rafał Trąbski"
 __email__ = "rafal.trabski@mises.pl"
 __status__ = "Development"
 
+import abc
 import arcade
 
 WHITE, GRAY, BLACK, GREEN = arcade.color.WHITE, arcade.color.GRAY, arcade.color.BLACK, arcade.color.GREEN
@@ -100,9 +111,18 @@ class SharedVariable:
         :param value: int, float or str -- value of variable assigned to this shared object
         :param associated_objects: list -- list of the objects associated to the value and updated accordingly
         """
-        self.value = value
+        self._value = value
         self.associated_objects = associated_objects
         SharedVariable.shared_variables.append(self)
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, value):
+        """Change value of the SharedVariable."""
+        self._value = value
 
     def add_associate(self, associated_object: object):
         """
@@ -125,7 +145,7 @@ class SharedVariable:
         Update the value of each object associated to the SharedVariable.
         """
         for i in range(0, len(self.associated_objects) - 1):
-            self.associated_objects[i] = self.value
+            self.associated_objects[i] = self._value
 
 
 class Cursor(arcade.Sprite):
@@ -154,7 +174,7 @@ class Cursor(arcade.Sprite):
         super().__init__(filepath + filename + ".png")
         self.application = app_hook
 
-        self.current_element = None
+        self.current_element = None  # menu widget Cursor is currently hoovering above (if any)
 
         self.angle = angle
 
@@ -370,6 +390,7 @@ class MenuElement:
         """
         pass
 
+    @abc.abstractmethod
     def on_press(self):
         """
         Function called when Cursor object receives 'click' event on this Element. Called automatically by the Menu
@@ -394,10 +415,11 @@ class MenuElement:
     def on_mouse_over(self):
         """
         Called when the Cursor is hoovering above this Element. Called automatically by the Menu class. Implement this
-        in the deriving classes.
+        in the deriving classes..
         """
-        pass
+        self.mouse_above = not self.mouse_above
 
+    @abc.abstractmethod
     def update(self):
         """
         Update attributes of this Element. Called automatically by the Menu class. Implement this in the deriving
@@ -405,6 +427,7 @@ class MenuElement:
         """
         pass
 
+    @abc.abstractmethod
     def draw(self):
         """
         Display this button on the screen. Called automatically by the Menu class. Implement this in the deriving
@@ -475,12 +498,6 @@ class Button(MenuElement):
     def check_if_cursor_above(self, cursor_x: float, cursor_y: float):
         """"""
         return self.left < cursor_x < self.right and self.bottom < cursor_y < self.top
-
-    def on_mouse_over(self):
-        """
-        Change button color when mouse-cursor hoovers over it, and set back normal color, when it is not.
-        """
-        self.mouse_above = not self.mouse_above
 
     def on_press(self):
         """
@@ -595,11 +612,9 @@ class Slider(MenuElement):
 
     def on_mouse_over(self):
         """Implement this in the deriving classes."""
-        if self.mouse_above:
-            self.mouse_above = False
+        super().on_mouse_over()
+        if not self.mouse_above:
             self.on_release()
-        else:
-            self.mouse_above = True
 
     def update(self):
         """Update the widget state."""
@@ -627,10 +642,81 @@ class Slider(MenuElement):
         return value if isinstance(self._variable_min, float) else int(value)
 
 
-class CheckButton(Button):
+class CheckButton(MenuElement):
     """
+    This element represents a simple switch button or check button which user can switch between two states: active or
+    inactive and by so control the boolean value of some variable.
+
     TODO: check-button widget [ ], test it [ ]
     """
+
+    def __init__(self, name: str = "CheckButton",
+                 variable: SharedVariable = None,
+                 pos_x: float = 0.0,
+                 pos_y: float = 0.0,
+                 function: callable = None,
+                 state: bool = False,
+                 checkbox_size: float = 10.0,
+                 checkbox_color: arcade.Color = BLACK,
+                 tickle_color: arcade.Color = GREEN,
+                 checkbox_image: arcade.Texture = None,
+                 tickle_image: arcade.Texture = None,
+                 ):
+        """
+        Initialize new CheckButton element.
+
+        :param name: str -- name of the CheckButton to be displayed above it in the Menu (default: 'Checkbutton')
+        :param pos_x: float -- x coordinate of the Slider center (default: 0.0)
+        :param pos_y: float -- y coordinate (default: 0.0)
+        :param function: callable -- function to be called when element is clicked
+        :param state: bool -- if the CheckButton is activated or not (default: False)
+        :param checkbox_size: float -- x and y size of the element (default: 10.0 x 10.0)
+        :param checkbox_color: arcade.Color -- color of the box (default: arcade.color.BLACK)
+        :param checkbox_image: arcade.Texture -- alternatively you can set texture instead of color and size
+        :param tickle_color: arcade.Color -- color of the tickle pattern (default: arcade.color.GREEN)
+        :param tickle_image: arcade.Texture -- alternatively you can set an image
+        """
+        super().__init__(name, pos_x, pos_y, function)
+
+        self.state = state  # inner state of the GUI element
+        self.variable = variable  # variable controlled by the inner state
+
+        self.box_size = checkbox_size
+        self.box_color = checkbox_color
+        self.box_image = checkbox_image
+        self.tickle_color = tickle_color
+        self.tickle_image = tickle_image
+
+    def on_press(self):
+        self.state = not self.state
+
+    def on_mouse_over(self):
+        """
+        Called when the Cursor is hoovering above this Element. Called automatically by the Menu class. Implement this
+        in the deriving classes.
+        """
+        pass
+
+    def update(self):
+        """
+        Update attributes of this Element. Called automatically by the Menu class. Implement this in the deriving
+        classes.
+        """
+        self.variable.value = self.state
+
+    def draw(self):
+        """
+        Display this button on the screen. Called automatically by the Menu class. Implement this in the deriving
+        classes.
+        """
+        if self.box_image:
+            arcade.draw_texture_rectangle(self.center_x, self.center_y, self.box_image.width, self.box_image.height,
+                                          self.box_image)
+            if self.state:
+                arcade.draw_texture_rectangle(self.center_x, self.center_y, self.tickle_image.width,
+                                              self.tickle_image.height, self.tickle_image)
+        else:
+            arcade.draw_rectangle_outline(self.center_x, self.center_y, self.box_size, self.box_size, self.box_color)
 
 
 class TextLabel(MenuElement):
@@ -664,6 +750,15 @@ class TextLabel(MenuElement):
     def get_text(self):
         """Read text value of this element."""
         return self._text
+
+    def on_press(self):
+        pass
+
+    def update(self):
+        pass
+
+    def draw(self):
+        pass
 
 
 class TextField(TextLabel):
@@ -705,8 +800,26 @@ class TextField(TextLabel):
         # TODO: formatting text to assure that it will be folded as user wanted [ ][ ][ ], test it [ ]
         return text
 
+    def on_press(self):
+        pass
+
+    def update(self):
+        pass
+
+    def draw(self):
+        pass
+
 
 class UserInput(MenuElement):
     """
     TODO: a field which accepts user-input [ ], saves it to the variable [ ], and have getter to retrieve it's value [ ]
     """
+
+    def update(self):
+        pass
+
+    def draw(self):
+        pass
+
+    def on_press(self):
+        pass
