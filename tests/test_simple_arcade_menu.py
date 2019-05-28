@@ -3,7 +3,8 @@ import unittest
 from simple_arcade_menu import *
 
 path = os.path.dirname(os.path.abspath(__file__))
-dummy = arcade.Window  # required to pass arcade.Window instance to some methods and class constructors
+# required to pass arcade.Window instance to some methods and classes:
+dummy = arcade.Window
 
 
 class TestSimpleArcadeMenu(unittest.TestCase):
