@@ -28,6 +28,7 @@ from functools import partial
 from simple_arcade_menu import SharedVariable, Cursor, Menu, SubMenu, Button, \
     Slider, CheckBox
 
+
 # constants:
 TITLE = "Red Invaders"
 # TODO: adjustment o window size to the different screen sizes [ ]
@@ -43,7 +44,7 @@ YELLOW, BLUE = arcade.color.YELLOW_ORANGE, arcade.color.ELECTRIC_BLUE
 STARS_COLORS = (WHITE, WHITE, WHITE, WHITE, BLUE, BLUE, YELLOW, YELLOW, RED)
 STAR_SIZES = (1, 1, 1, 1, 2, 2, 3)
 BACKGROUND_COLOR, GREEN = arcade.color.BLACK, arcade.color.BRIGHT_GREEN
-PATH = os.path.dirname(os.path.abspath(__file__))
+PATH = os.path.dirname(os.path.abspath(__file__))  # os.getcwd()
 GRAPHICS_PATH = PATH + "/graphics/"
 SOUNDS_PATH = PATH + "/sounds/"
 CONFIG_PATH = PATH + "/config_files/"
@@ -62,16 +63,16 @@ ROCKET_SOUND = "rocket"
 POWERUP_SOUND = "powerup"
 POWERUP_TIME = 1800
 POWERUP_CHANCE = 0
-POWERUP_ROCKETS_1, POWERUP_ROCKETS_2, POWERUP_ROCKETS_3 = "powerup_rockets_1", "powerup_rockets_2", "powerup_rockets_3"
-POWERUP_LASER_DUAL, POWERUP_LASER_STRONG, POWERUP_SHIELD = "powerup_laser_dual", "powerup_laser_fast", "powerup_shield"
-TEXTURE, HEALTH, SHIELD, ROCKETS, SPEED, WEAPON = "texture", "health", "shield", "rockets", "speed", "weapon"
-PLAYER, HOSTILES, POWERUPS, LEVELS, RATINGS, SCORES = "player", "hostiles", "powerups", "levels", "ratings", "scores"
-LASERS, DAMAGES, SOUNDS, TYPES, ROF, KINETIC = "lasers", "damages", "sounds", "types", "rof", "kinetics"
-MAIN_MENU, INSTRUCTIONS_SUBMENU, OPTIONS_SUBMENU = "main", "show_instructions_menu", "options"
+POWERUP_ROCKETS_1, POWERUP_ROCKETS_2 = "powerup_rockets_1", "powerup_rockets_2"
+POWERUP_ROCKETS_3, POWERUP_LASER_DUAL = "powerup_rockets_3", "powerup_laser_dual"
+POWERUP_LASER_STRONG, POWERUP_SHIELD = "powerup_laser_fast", "powerup_shield"
+TEXTURE, HEALTH, SHIELD, ROCKETS = "texture", "health", "shield", "rockets"
+SPEED, WEAPON, PLAYER, HOSTILES = "speed", "weapon", "player", "hostiles"
+POWERUPS, LEVELS, RATINGS, SCORES = "powerups", "levels", "ratings", "scores"
+LASERS, DAMAGES, SOUNDS, TYPES = "lasers", "damages", "sounds", "types"
+ROF, KINETIC = "rof", "kinetics"
+MAIN_MENU, INSTRUCTIONS, OPTIONS_MENU = "main", "instructions_menu", "options"
 MIN_DISTANCE, MAX_DISTANCE = "preferred_min_distance", "preferred_max_distance"
-
-# game-data containers to be filled from external files
-player, hostiles, powerups, levels, weapons, game = None, None, None, None, None, None
 
 
 def get_image_path(filename: str):
@@ -120,8 +121,8 @@ def load_config_files(path: str = CONFIG_PATH):
 
     # TODO: more robust converting system [x][ ][ ], test it [x][ ][ ]
     # noinspection PyUnresolvedReferences
-    with open(player_, "r") as pl, open(hostiles_, "r") as h,\
-            open(powerups_, "r") as pu, open(levels_, "r") as L,\
+    with open(player_, "r") as pl, open(hostiles_, "r") as h, \
+            open(powerups_, "r") as pu, open(levels_, "r") as L, \
             open(weapons_, "r") as w:
         for file in [pl, h, pu, L, w]:
             file_unpacked = []
@@ -361,12 +362,8 @@ class Spaceship(SpaceObject):
                 hit_color = RED if self == game.player else GREEN
                 game.create_hint("Hit!", self.center_x, self.center_y, 0, 0,
                                  hit_color, 10, 1)
-        # killing ships first, to avoid unnecessary updating their
-        # properties later:
-        if self.health < 1:
-            self.kill()
-        else:
-            play_sound(HIT_SOUND)
+
+        self.kill() if self.health < 1 else play_sound(HIT_SOUND)
 
     def update(self):
         super().update()
@@ -409,8 +406,7 @@ class Spaceship(SpaceObject):
 
     def kill(self):
         super().kill()
-        game.explosions.append(
-            Explosion(self.center_x, self.center_y))  # just an animated sprite
+        game.explosions.append(Explosion(self.center_x, self.center_y))
 
 
 class PlayerShip(Spaceship):
@@ -423,8 +419,8 @@ class PlayerShip(Spaceship):
 
     def __init__(self, textures_list: list):
         super().__init__("player_ship/" + textures_list[0])
-        self.booster_effects = {POWERUP_LASER_DUAL: [False, 0],
-                                POWERUP_LASER_STRONG: [False, 0]}
+        self.powerups = {POWERUP_LASER_DUAL: [False, 0],
+                         POWERUP_LASER_STRONG: [False, 0]}
         self.powerup_damage_mod = 1
         self.center_x = SCREEN_WIDTH / 2
         self.center_y = SCREEN_HEIGHT / 2
@@ -485,14 +481,14 @@ class PlayerShip(Spaceship):
 
     def update(self):
         super().update()
-
-        self.update_movement()  # set the movement accordingly to the keys pressed by player
+        # set the movement accordingly to the keys pressed by player:
+        self.update_movement()
 
         self.check_for_collisions()
+        # update texture accordingly to the movement (to show work of engines):
+        self.update_texture()
 
-        self.update_texture()  # update texture accordingly to the movement (to show work of engines):
-
-        self.manage_booster_effects()
+        self.manage_powerups()
 
         if all((self.shooting, self.last_shot is not None,
                 game.game_time - self.last_shot >= self.rate_of_fire)):
@@ -521,21 +517,21 @@ class PlayerShip(Spaceship):
                 self.kill()
                 break
 
-    def manage_booster_effects(self):
+    def manage_powerups(self):
         """
-        Check each active booster effect if it's duration surpassed booster
+        Check each active power-up effect if it's duration surpassed booster
         game_time limit. If so, terminate it.
         """
-        for booster in self.booster_effects:
+        for booster in self.powerups:
             if booster[0]:
-                if self.booster_effects[booster][1] == 0:
-                    self.end_booster_effect(booster)
+                if self.powerups[booster][1] == 0:
+                    self.end_powerup(booster)
                 else:
-                    self.booster_effects[booster][1] -= 1
+                    self.powerups[booster][1] -= 1
 
-    def apply_booster(self, booster_type: str):
+    def apply_powerup(self, booster_type: str):
         """
-        Apply a booster effect to the player's ship.
+        Apply a powerup effect to the player's ship.
         """
         hints = {POWERUP_ROCKETS_1: "ROCKETS +1",
                  POWERUP_ROCKETS_2: "ROCKETS +2",
@@ -544,15 +540,15 @@ class PlayerShip(Spaceship):
                  POWERUP_LASER_STRONG: "STRONGER LASER CANON +30sec",
                  POWERUP_SHIELD: "ENERGETIC SHIELD +50"}
         if booster_type == POWERUP_LASER_DUAL:
-            if not self.booster_effects[POWERUP_LASER_DUAL][0]:
-                self.booster_effects[POWERUP_LASER_DUAL][0] = True
+            if not self.powerups[POWERUP_LASER_DUAL][0]:
+                self.powerups[POWERUP_LASER_DUAL][0] = True
                 self.rearm(weapons[LASERS][0])
                 self.rearm(weapons[LASERS][0])
-            self.booster_effects[POWERUP_LASER_DUAL][1] += POWERUP_TIME
+            self.powerups[POWERUP_LASER_DUAL][1] += POWERUP_TIME
         elif booster_type == POWERUP_LASER_STRONG:
-            if not self.booster_effects[POWERUP_LASER_STRONG][0]:
-                self.booster_effects[POWERUP_LASER_STRONG][0] = True
-            self.booster_effects[POWERUP_LASER_STRONG][1] += POWERUP_TIME
+            if not self.powerups[POWERUP_LASER_STRONG][0]:
+                self.powerups[POWERUP_LASER_STRONG][0] = True
+            self.powerups[POWERUP_LASER_STRONG][1] += POWERUP_TIME
             self.powerup_damage_mod += 0.25
         elif booster_type == POWERUP_ROCKETS_1:
             self.rearm(weapons[ROCKETS][1])
@@ -567,9 +563,9 @@ class PlayerShip(Spaceship):
             self.shield += 50
         game.create_hint(hints[booster_type], color=GREEN, size=25, time=2)
 
-    def end_booster_effect(self, booster):
+    def end_powerup(self, booster):
         """
-        Remove booster effect after 30 seconds.
+        Remove powerup effect after 30 seconds.
         """
         if booster == POWERUP_LASER_DUAL:
             self.main_weapon = None
@@ -577,7 +573,7 @@ class PlayerShip(Spaceship):
             self.rearm(weapons[LASERS][0])
         else:
             self.powerup_damage_mod = 1
-        self.booster_effects[booster][0] = False
+        self.powerups[booster][0] = False
 
     def kill(self):
         super().kill()
@@ -586,24 +582,26 @@ class PlayerShip(Spaceship):
 
 class Hostile(Spaceship):
     """
-    Subclass for enemies. They can do many funny things, like avoiding player's shots.
+    Subclass for enemies. They can do many funny things, like avoiding player's
+    shots.
     """
 
     def __init__(self, difficulty: int):
         max_enemy = difficulty + 1 if difficulty <= len(
             hostiles[HOSTILES]) else len(hostiles[HOSTILES])
         hostile = random.choice(hostiles[HOSTILES][
-                                0:max_enemy])  # TODO: better enemies spawning system?
+                                0:max_enemy])  # TODO: better enemies spawning?
         super().__init__("hostiles/" + hostile)
         self.model = hostile
         self.speed = hostiles[SPEED][hostile]
         self.health = hostiles[HEALTH][hostile]
         self.shield = hostiles[SHIELD][hostile]
-        self.evasiveness = 40 - difficulty  # tricky, lesser number, higher chance that hostile will evade
+        # tricky, lesser number, higher chance that hostile will evade:
+        self.evasiveness = 40 - difficulty
         self.avoiding = False
         self.targeted_position = None
         self.dangerous = None
-        self.player_x, self.player_y = None, None
+        self.playerX, self.playerY = None, None
         self.turrets = self.install_turrets()
         self.append_texture(arcade.load_texture(
             get_image_path("hostiles/" + hostile + "_shield"),
@@ -637,13 +635,13 @@ class Hostile(Spaceship):
     def update(self):
         super().update()
 
-        self.player_x, self.player_y = game.player.center_x, game.player.center_y
+        self.playerX, self.playerY = game.player.center_x, game.player.center_y
 
         if self.in_danger():
             self.evade()
 
         if (not self.avoiding or not self.targeted_position) \
-                and random.randint(1, 100) > 75: self.maneuvre()
+            and random.randint(1, 100) > 75: self.maneuvre()
 
         if not self.avoiding or not self.targeted_position:
             self.aim_at_player()
@@ -663,7 +661,7 @@ class Hostile(Spaceship):
 
     def in_danger(self):
         """
-        Check if there is a player-shot projectile in line of this hostile ship.
+        Check if there is a player-shot projectile in line of this enemy ship.
         """
         self.avoiding = False
         for projectile in game.projectiles:
@@ -697,7 +695,7 @@ class Hostile(Spaceship):
         Makes ship doing random maneuvers to add mess to hostiles movement.
         """
         min_distance, max_distance = hostiles[MIN_DISTANCE][self.model], \
-                                     hostiles[MAX_DISTANCE][self.model]
+            hostiles[MAX_DISTANCE][self.model]
         target_x, target_y = (random.randint(MARGIN, SCREEN_WIDTH - MARGIN),
                               SCREEN_HEIGHT * random.uniform(min_distance,
                                                              max_distance))
@@ -724,10 +722,10 @@ class Hostile(Spaceship):
         Try to move Hostile left or right to position it just above player's
         ship.
         """
-        if abs(self.center_x - self.player_x) > SPRITES_SCALE / 2:
-            if self.center_x < self.player_x:
+        if abs(self.center_x - self.playerX) > SPRITES_SCALE / 2:
+            if self.center_x < self.playerX:
                 self.change_x = SPACESHIP_STRAFE
-            elif self.center_x > self.player_x:
+            elif self.center_x > self.playerX:
                 self.change_x = -SPACESHIP_STRAFE
         else:
             self.change_x = 0
@@ -743,8 +741,8 @@ class Hostile(Spaceship):
             turret.center_x = self.center_x + turret.offset_x
             turret.center_y = self.center_y - turret.offset_y
             # rotation - aiming at player:
-            radians = math.atan2(self.player_x - self.center_x,
-                                 self.player_y - self.center_y)
+            radians = math.atan2(self.playerX - self.center_x,
+                                 self.playerY - self.center_y)
             turret.angle = -math.degrees(radians)
             # shooting at player:
             if game.game_time - turret.last_shot > turret.rate_of_fire:
@@ -779,14 +777,13 @@ class Hostile(Spaceship):
         super().kill()
 
         score = hostiles[SCORES][self.model]
-        game.create_hint(str(score), self.center_x, self.center_y, 0, -5,
-                         GREEN, 12 + ((score / 10) % 10))
         game.score += score
         game.destroyed += 1
+        game.create_hint(str(score), self.center_x, self.center_y, 0, -5,
+                         GREEN, 12 + ((score / 10) % 10))
+        self.spawn_power_up()
 
-        self.spawn_powerup()
-
-    def spawn_powerup(self):
+    def spawn_power_up(self):
         """
         Create new PowerUp instance when hostile spaceship is destroyed and
         additional conditions are met.
@@ -867,7 +864,7 @@ class Projectile(SpaceObject):
         if not self.target and len(game.hostiles) > 0:
             if self.angle == UPWARD:  # if rocket fired by player
                 # TODO: rockets ignoring targets already acquired by other
-                #  rockets and take next one [ ]
+                #  rockets and take next one [ ][ ], test it [ ]
                 # closest enemy ship:
                 self.target = arcade.get_closest_sprite(self, game.hostiles)[0]
             else:
@@ -887,8 +884,9 @@ class Projectile(SpaceObject):
         """
         Destroy a Projectile if it went off the screen to save memory.
         """
-        if 0 > self.center_y or self.center_y > SCREEN_HEIGHT or 0 > self.center_x or self.center_x > SCREEN_WIDTH:
-            self.kill()
+        condition_a = 0 > self.center_y or self.center_y > SCREEN_HEIGHT
+        condition_b = 0 > self.center_x or self.center_x > SCREEN_WIDTH
+        if condition_a or condition_b: self.kill()
 
     def check_for_hits(self):
         """
@@ -906,9 +904,6 @@ class Projectile(SpaceObject):
             hit.damage(self.damage)
             self.kill()
             break
-
-    def kill(self):
-        super().kill()
 
 
 class Turret(SpaceObject):
@@ -939,7 +934,7 @@ class PowerUp(SpaceObject):
     All kinds of collectible powerups available to use by player.
     """
 
-    last_spawn = 0
+    last_spawn = 0  # spawn time kept to update spawning chance
 
     def __init__(self, pos_x: float, pos_y: float):
         self.type_ = random.choice(powerups)
@@ -957,7 +952,7 @@ class PowerUp(SpaceObject):
 
         if arcade.check_for_collision(self, game.player):
             play_sound(POWERUP_SOUND)
-            game.player.apply_booster(self.type_)
+            game.player.apply_powerup(self.type_)
             self.kill()
 
 
@@ -969,7 +964,7 @@ class Explosion(SpaceObject):
     def __init__(self, x, y):
         super().__init__("explosion/explosion0000")
 
-        for i in range(40):
+        for i in range(1, 40):
             zeros = "000" if i < 10 else "00"
             tex = "explosion/explosion" + zeros + str(i)
             self.append_texture(arcade.load_texture(get_image_path(tex)))
@@ -1027,7 +1022,7 @@ class Game(arcade.Window):
         self.turrets = None
         self.explosions = None
         # all the arcade.spriteLists would be put into this list:
-        self.spritelists = None
+        self.sprites_lists = None
 
         self.player = None
         self.player_name = ""
@@ -1036,7 +1031,6 @@ class Game(arcade.Window):
         # we have two 'times' because we need to keep time updating when game
         # is paused or in scores table
         self.game_time, self.pause_time = 0.0, 0.0
-        self.minutes, self.seconds = 0, 0
 
         self.shots_fired = 0
         self.hits = 0
@@ -1069,11 +1063,11 @@ class Game(arcade.Window):
         self.menu = Menu(self, main_menu)
         # hwo-to-play instructions submenu:
         elements, background = self.create_instructions_submenu()
-        instructions = SubMenu(name=INSTRUCTIONS_SUBMENU,
+        instructions = SubMenu(name=INSTRUCTIONS,
                                menu_elements=elements, background=background)
         # game options submenu:
         elements = self.create_options_submenu()
-        options = SubMenu(name=OPTIONS_SUBMENU, menu_elements=elements)
+        options = SubMenu(name=OPTIONS_MENU, menu_elements=elements)
         self.menu.add_submenu(instructions)
         self.menu.add_submenu(options)
         self.in_menu = True
@@ -1137,15 +1131,16 @@ class Game(arcade.Window):
         self.next_difficulty_raise = 30 * FPS
 
         self.players, self.hostiles, self.projectiles, self.powerups, \
-        self.turrets, self.explosions = self.create_spritelists()
-        self.spritelists = [self.players, self.hostiles, self.projectiles,
-                            self.powerups, self.turrets, self.explosions]
+            self.turrets, self.explosions = self.create_spritelists()
+
+        self.sprites_lists = [self.players, self.hostiles, self.projectiles,
+                              self.powerups, self.turrets, self.explosions]
 
         self.player = self.spawn_player()
         self.player_name = ""
 
         self.paused = False
-        self.game_time, self.pause_time, self.minutes, self.seconds = 0.0, 0.0, 0, 0
+        self.game_time, self.pause_time = 0.0, 0.0
 
         self.shots_fired = 0
         self.hits = 0
@@ -1160,11 +1155,11 @@ class Game(arcade.Window):
 
     def show_options_menu(self):
         """Navigate to the options section in game menu."""
-        self.menu.toggle_submenu(OPTIONS_SUBMENU)
+        self.menu.toggle_submenu(OPTIONS_MENU)
 
     def show_instructions_menu(self):
         """Navigate to the instructions how to play in game menu."""
-        self.menu.toggle_submenu(INSTRUCTIONS_SUBMENU)
+        self.menu.toggle_submenu(INSTRUCTIONS)
 
     def create_stars(self):
         """
@@ -1209,8 +1204,9 @@ class Game(arcade.Window):
             for size in self.stars[color]:
                 for star in self.stars[color][size]:
                     star[1] -= BACKGROUND_SPEED * star[4]
-                    if star[1] < 0: star[1] = SCREEN_HEIGHT + 1; star[
-                        0] = random.randint(0, SCREEN_WIDTH)
+                    if star[1] < 0:
+                        star[1] = SCREEN_HEIGHT + 1
+                        star[0] = random.randint(0, SCREEN_WIDTH)
 
     def draw_stars(self):
         """Display 'stars" on the background, which are just 1px white dots."""
@@ -1358,8 +1354,8 @@ class Game(arcade.Window):
         went off the screen, delete this marker.
         """
         for target in self.targets_markers:
-            if target["rocket"] in self.projectiles and target[
-                "target"] in self.hostiles:
+            if (target["rocket"] in self.projectiles and
+                    target["target"] in self.hostiles):
                 target["x"] = target["target"].center_x
                 target["y"] = target["target"].center_y
             else:
@@ -1388,19 +1384,16 @@ class Game(arcade.Window):
         if self.players:
             if not self.paused:
                 self.game_time += 1
-                self.minutes, self.seconds = int(
-                    self.game_time) // 60, self.game_time % 60
 
                 if self.game_time % 90 == 0 and self.not_enough_enemies():
                     self.spawn_hostile()
 
-                # TODO: spawning bosses [ ], raising difficulty [x][ ],
-                #  laser overheating [ ]
+                # TODO: spawning bosses [ ], laser overheating [ ]
 
                 if self.challenge_mode.value and self.if_difficulty_to_low():
                     self.raise_difficulty()
 
-                for sprite_list in self.spritelists:
+                for sprite_list in self.sprites_lists:
                     if len(sprite_list) > 0:
                         sprite_list.update()
 
@@ -1425,7 +1418,7 @@ class Game(arcade.Window):
             if self.players:  # game is rendered only, if player is alive
                 self.draw_stars()
 
-                for sprite_list in self.spritelists:
+                for sprite_list in self.sprites_lists:
                     sprite_list.draw()
 
                 if len(self.targets_markers) > 0: self.draw_targets_markers()
@@ -1448,8 +1441,10 @@ class Game(arcade.Window):
         """
         Display hud information on the screen.
         """
-        output = f"Fired shots: {self.shots_fired}, Hit enemies: {self.hits}, Destroyed: {self.destroyed}, " \
-            f"Rockets: {self.player.rockets}, Shield: {self.player.shield}, Score: {self.score}"
+        output = f"Fired shots: {self.shots_fired}," \
+            f" Hit enemies: {self.hits}, Destroyed: {self.destroyed}," \
+            f"Rockets: {self.player.rockets}," \
+            f" Shield: {self.player.shield}, Score: {self.score}"
 
         if self.god_mode: output += ", Godmode: on"
 
@@ -1482,24 +1477,14 @@ class Game(arcade.Window):
     def on_mouse_release(self, x: float, y: float, button: int,
                          modifiers: int):
         """
-
-        :param x:
-        :param y:
-        :param button:
-        :param modifiers:
+        Cease this functionality to Cursor.on_mouse_release() method.
         """
         self.cursor.on_mouse_release(button, self.in_menu)
 
     def on_mouse_drag(self, x: float, y: float, dx: float, dy: float,
                       buttons: int, modifiers: int):
         """
-
-        :param x:
-        :param y:
-        :param dx:
-        :param dy:
-        :param buttons:
-        :param modifiers:
+        Cease this functionality to Cursor.on_mouse_drag() method.
         """
         self.on_mouse_motion(x, y, dx, dy)
         self.cursor.on_mouse_drag(x, y, dx, dy, buttons, modifiers)
@@ -1511,7 +1496,7 @@ class Game(arcade.Window):
         :param int key: Key that was hit
         :param int modifiers: If it was shift/ctrl/alt
         """
-        if not self.players:
+        if not (self.players or self.in_menu):
             if self.should_display_scores:
                 self.enter_player_name(key, modifiers)
             else:
@@ -1521,7 +1506,7 @@ class Game(arcade.Window):
                 elif key == arcade.key.ESCAPE:
                     self.save_best_scores()
                     self.in_menu = True
-        else:  # TODO: FIX STEERING!
+        else:
             if key == arcade.key.P or key == arcade.key.PAUSE:
                 self.toggle_pause()
             if not self.paused:
@@ -1612,15 +1597,18 @@ class Game(arcade.Window):
         :return: str -- text output to be displayed on the screen
         """
         scores_table, tab, spaces, base_color = [], " " * 4, " " * (
-                12 - len(self.player_name)), arcade.color.WHITE
+                12 - len(self.player_name)), WHITE
         for i in range(len(self.best_scores)):
             if i == self.new_score_index:
-                s = f"Player name: {self.best_scores[i]['name']}" + tab + f"Score: {self.best_scores[i]['score']}"
+                s = f"Player name: {self.best_scores[i]['name']}" + tab + \
+                    f"Score: {self.best_scores[i]['score']}"
                 scores_table.append([s, False])
-                p = f"Your name: {self.player_name}" + spaces + f"Your score: {self.score}"
+                p = f"Your name: {self.player_name}" + spaces + \
+                    f"Your score: {self.score}"
                 scores_table.append([p, True])
             else:
-                s = f"Player name: {self.best_scores[i]['name']}" + tab + f"Score: {self.best_scores[i]['score']}"
+                s = f"Player name: {self.best_scores[i]['name']}" + tab + \
+                    f"Score: {self.best_scores[i]['score']}"
                 scores_table.append([s, False])
         if len(scores_table) == 1:
             p = "Your name: {}".format(
@@ -1631,9 +1619,7 @@ class Game(arcade.Window):
 
         for i in range(len(scores_table)):
             score = scores_table[i]
-            color = base_color
-            if score[1]:  # if it is a player's current score
-                color = arcade.color.BRIGHT_GREEN
+            color = GREEN if score[1] else base_color
             arcade.draw_text(score[0], SCREEN_WIDTH * 0.4,
                              SCREEN_HEIGHT * 0.8 - i * 30, color, 20)
 
@@ -1644,14 +1630,14 @@ class Game(arcade.Window):
         If so, save it to the file with Shelve
         module.
 
-        :type current_score: int -- score achieved by current player in last
+        :param current_score: int -- score achieved by current player in last
         game
-        :type best_scores: list of dicts -- best scores in format:
+        :param best_scores: list of dicts -- best scores in format:
         [{name: str, score: int}...]
         :return: bool, int -- if there is new  score and, index of player's
         score on the best scores-table list
         """
-        new_score, highest_index = False, None  # important variables passed further
+        new_score, highest_index = False, None  # important variables
         for i in range(len(best_scores)):
             if current_score > best_scores[i]["score"]:
                 new_score, highest_index = True, i

@@ -181,7 +181,7 @@ class SharedVariable:
 
 class Cursor(arcade.Sprite):
     """
-    TODO: write raw Cursor abstract class [ ], test it [ ]
+    TODO: write raw Cursor abstract class [x], test it [x][ ]
     """
 
     def __init__(self,
@@ -694,7 +694,7 @@ class Slider(MenuElement):
         self.slide_color = slide_color
         self.border_color = border_color
         self.slider_color = slider_color
-        self.slider_current_color = self.slider_color
+        self.slider_cur_color = self.slider_color
         # current value of the variable connected to the Slider:
         self._var_cur_val = self.variable.value
 
@@ -728,7 +728,7 @@ class Slider(MenuElement):
 
     def update(self):
         """Update the widget state."""
-        self.slider_current_color = GREEN if self.mouse_above else self.slider_color
+        self.slider_cur_color = GREEN if self.mouse_above else self.slider_color
 
     def draw(self):
         """
@@ -745,7 +745,7 @@ class Slider(MenuElement):
                                       self.border_color)
         # Slider handle:
         arcade.draw_circle_filled(self.slider_position, self.center_y,
-                                  self.height / 1.5, self.slider_current_color)
+                                  self.height / 1.5, self.slider_cur_color)
         arcade.draw_circle_outline(self.slider_position, self.center_y,
                                    (self.height / 1.5) + 2, self.border_color)
         # Variable value:
@@ -786,30 +786,22 @@ class CheckBox(MenuElement):
                 arcade.draw_texture_rectangle(self.x, self.y, self.size,
                                               self.size, self.texture)
             else:
+                size = self.size
                 if self.shape == "SQUARE":
-                    arcade.draw_rectangle_filled(self.x, self.y, self.size,
-                                                 self.size, self.color)
+                    arcade.draw_rectangle_filled(self.x, self.y, size, size,
+                                                 self.color)
                 elif self.shape == "TICK":
-                    start_point = (self.x - (self.size / 2), self.y)
-                    turn_point = (
-                    self.x - (self.size / 4), self.y - (self.size / 2))
-                    end_point = (
-                    self.x + (self.size / 2), self.y + (self.size / 2))
-                    arcade.draw_lines(
-                        (start_point, turn_point, turn_point, end_point),
-                        self.color, 3)
+                    start = (self.x - (size / 2), self.y)
+                    turn = (self.x - (size / 4), self.y - (size / 2))
+                    end = (self.x + (size / 2), self.y + (size / 2))
+                    arcade.draw_lines((start, turn, turn, end), self.color, 3)
                 elif self.shape == "CROSS":
-                    left_top = (
-                    self.x - (self.size / 2), self.y + (self.size / 2))
-                    left_bottom = (
-                    self.x - (self.size / 2), self.y - (self.size / 2))
-                    right_top = (
-                    self.x + (self.size / 2), self.y + (self.size / 2))
-                    right_bottom = (
-                    self.x + (self.size / 2), self.y - (self.size / 2))
-                    arcade.draw_lines(
-                        (left_top, right_bottom, left_bottom, right_top),
-                        self.color, 3)
+                    l_top = (self.x - (size / 2), self.y + (size / 2))
+                    l_bottom = (self.x - (size / 2), self.y - (size / 2))
+                    r_top = (self.x + (size / 2), self.y + (size / 2))
+                    r_bottom = (self.x + (size / 2), self.y - (size / 2))
+                    arcade.draw_lines((l_top, r_bottom, l_bottom, r_top),
+                                      self.color, 3)
 
     def __init__(self,
                  variable: SharedVariable,
@@ -833,6 +825,7 @@ class CheckBox(MenuElement):
         :param variable: SharedVariable -- a SharedVariable instance which
         value will be controlled by this CheckBox, default variable type is
         boolean.
+
         :param checked_value: object -- alternative value assigned to the
         variable if CheckBox is checked
         :param unchecked_value: object -- alternative value assigned to the
