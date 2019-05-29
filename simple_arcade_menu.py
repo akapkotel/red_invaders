@@ -111,24 +111,29 @@ class SharedVariable:
     SharedVariable makes it available to connect attributes of your
     arcade.Window class or other classes from your script to the Slider or
     RadioButton elements of the Menu so when these are used, values of
-    connected attributes change to.
+    connected attributes change too.
 
-    When declaring a attribute, just assign as it's value a new instance of
-    SharedVariable class passing the starting value as first argument,
-    and the empty list as second.
+    SharedVariable is created automatically by the MenuElement which need it in
+    it's __init__ method. The value of class attribute this MenuElement is
+    connected to is passed as a value of the SharedElement and the instance of
+    that class is added to it's associated-objects list.
 
-    Optionally, if there are other variables you need to be changed when this
-    one changes, put them into the list passed as second argument.
+    Each time the SharedVariable value changes (e.g. when Slider is moved in
+    the Menu), value of attribute of the associated object is automatically
+    updated too.
 
-    You can always add another 'associated' variable or attribute, using the
-    'add_associate()' method, or remove connection with 'remove_associate()'
-    passing the variable, which should be associated or unassociated.
+    You can always add another 'associated' attribute f any object, using the
+    'add_associate()' method. You pass the object itself as a first argument,
+    and string name of the object's attribute you need to be associated as the
+    second argument.
+
+    You can also remove connection with 'remove_associate()' passing the
+    object, which should be unassociated.
     """
     # 'public' list of all the SharedVariable instances used by the Menu class:
     shared_variables = []
 
-    def __init__(self, value: bool or int or float or str,
-                 associated_objects: list):
+    def __init__(self, value: bool or int or float or str):
         """
         SharedVariable is an internal object used to assure that value of
         variables assigned to different objects in the application,  especially
@@ -137,11 +142,9 @@ class SharedVariable:
 
         :param value: bool, int, float or str -- value of variable assigned to
          this shared object
-        :param associated_objects: list -- list of the objects associated to
-        the value and updated accordingly
         """
         self._value = value
-        self.associated_objects = associated_objects
+        self.associated = {}
         SharedVariable.shared_variables.append(self)
 
     @property
@@ -152,31 +155,38 @@ class SharedVariable:
     def value(self, value):
         """Change value of the SharedVariable."""
         self._value = value
+        self.update()
 
-    def add_associate(self, associated_object: object):
+    def add_associate(self, object_: object, attribute: str):
         """
         Add new association to this SharedVariable.
 
-        :param associated_object: object -- an variable which should be updated
-         when this SharedVariable changes
+        :param object_: object -- instance of class to which the associated
+        attribute belongs
+        :param attribute: str -- string name of the instance's attribute which
+         you want to associate ith this SharedVariable
         """
-        self.associated_objects.append(associated_object)
+        self.associated[object_] = attribute
 
     def remove_associate(self, removed_object: object):
         """
         Delete the association to this SharedVariable.
 
-        :param removed_object: object -- an external variable which should be
-        unassociated
+        :param removed_object: object -- an class instance which attribute you
+        need to disassociate
         """
-        self.associated_objects.remove(removed_object)
+        if removed_object in self.associated.keys():
+            del self.associated[removed_object]
+        # when self.associated was a list of tuples:
+        # removed = filter(lambda x: x[0] is removed_object, self.associated)
+        # [self.associated.remove(x) for x in removed]
 
     def update(self):
         """
-        Update the value of each object associated to the SharedVariable.
+        Update the value of each attribute associated to the SharedVariable.
         """
-        for i in range(0, len(self.associated_objects) - 1):
-            self.associated_objects[i] = self._value
+        for associate in self.associated.keys():
+            associate.__dict__[self.associated[associate]] = self.value
 
 
 class Cursor(arcade.Sprite):
@@ -290,8 +300,7 @@ class Cursor(arcade.Sprite):
             if self.current_element is not None:
                 self.current_element.on_release()
 
-    def on_mouse_drag(self, x: float, y: float, dx: float, dy: float,
-                      buttons: int, modifiers: int):
+    def on_mouse_drag(self, dx: float):
         """
         This method should be called by the on_mouse_drag() method of
         arcade.Window application which you need this Cursor to work with.
@@ -312,86 +321,6 @@ class Cursor(arcade.Sprite):
         method should be added to the main game on_draw() method.
         """
         self.cursors.draw()
-
-
-class Menu:
-    """
-    This class is the core of in-game-menu system. Menu class contains all the
-    SubMenu instances (lower-level menus) and at least one main menu
-    (highest-level SubMenu with 'main' attribute set to True). Menu methods
-    provides way to easy navigation between SubMenu instances it contains
-    and handles updating and displaying their elements.
-    """
-
-    def __init__(self, app_hook: arcade.Window, main_menu):
-        """
-        New Menu object constructor. Menu-object contains a hook used to
-        reference the caller, which should be an class inheriting from
-        arcade.Window class.
-        It also keeps a register of the menu-interactive objects, like buttons
-        etc. along with the callbacks bound to them.
-
-        :param app_hook: arcade.Window object -- instance of arcade.Window
-        class required for Menu functions to work
-        with the app
-        :param main_menu: simple_arcade_menu.SubMenu object -- main menu to be
-        displayed when player enters menu in game
-        """
-        self.application = app_hook
-
-        self.submenus = {}
-        self.shared_variables = SharedVariable.shared_variables
-
-        self.current_elements = None
-        self.current_background = None
-
-        self.add_submenu(main_menu)
-        self.toggle_submenu(main_menu.name)
-
-    def add_submenu(self, submenu):
-        """
-        Register new menu elements (Buttons, CheckButtons, Sliders etc.) and
-        backgrounds as the submenu of this Menu. It is possible to toggle
-        active submenu (set of MenuElements and backgrounds) and navigate
-        through multi-leveled menus. Main Menu submenu is also registered
-        with this method.
-
-        :param submenu: simple_arcade_menu.SubMenu object -- submenu to be
-        added to the current Menu
-        """
-        self.submenus[submenu.name] = submenu
-
-    def toggle_submenu(self, submenu_name: str):
-        """
-        Navigate from current submenu to another one. Load it's MenuElements
-        and background. Call this method in your arcade.Window to change
-        submenu which is displayed - just pass the string name of desired
-        SubMenu object you registered into the Menu.
-
-        :param submenu_name: str -- name of the submenu to open
-        """
-        self.current_elements = self.submenus[submenu_name].elements
-        self.current_background = self.submenus[submenu_name].background
-
-    def update(self):
-        """Update all the Menu attributes values."""
-        for element in self.current_elements:
-            element.update()
-        for shared in self.shared_variables:
-            shared.update()
-
-    def draw(self):
-        """
-        Display menu buttons and background accordingly to what 'submenu'
-        from self.submenus is currently active and set as self.current_submenu.
-        """
-        if self.current_background is not None:
-            width, height = self.application.width, self.application.height
-            arcade.draw_texture_rectangle(width / 2, height / 2, width, height,
-                                          self.current_background)
-
-        for element in self.current_elements:
-            element.draw()
 
 
 class SubMenu:
@@ -424,6 +353,81 @@ class SubMenu:
         self.is_main_menu = main
         self.elements = menu_elements
         self.background = background
+
+
+class Menu:
+    """
+    This class is the core of in-game-menu system. Menu class contains all the
+    SubMenu instances (lower-level menus) and at least one main menu
+    (highest-level SubMenu with 'main' attribute set to True). Menu methods
+    provides way to easy navigation between SubMenu instances it contains
+    and handles updating and displaying their elements.
+    """
+
+    def __init__(self, app_hook: arcade.Window, main_menu: SubMenu):
+        """
+        New Menu object constructor. Menu-object contains a hook used to
+        reference the caller, which should be an class inheriting from
+        arcade.Window class.
+        It also keeps a register of the menu-interactive objects, like buttons
+        etc. along with the callbacks bound to them.
+
+        :param app_hook: arcade.Window object -- instance of arcade.Window
+        class required for Menu functions to work with the app
+        :param main_menu: SubMenu object -- main menu to be displayed when
+        player enters menu in game and the highest-level of the Menu
+        """
+        self.application = app_hook
+
+        self.submenus = {}
+
+        self.current_elements = None
+        self.current_background = None
+
+        self.add_submenu(main_menu)
+        self.toggle_submenu(main_menu.name)
+
+    def add_submenu(self, submenu: SubMenu, title: str = None):
+        """
+        Register an instance of SubMenu class as the lower-level sub-menu of
+        this Menu. It is possible to toggle active submenu (set of
+        the MenuElements and backgrounds) and navigate through multi-leveled
+        menus. Main Menu submenu is also registered with this method.
+
+        :param submenu: SubMenu object -- submenu to be added to the Menu
+        :param title: str -- optional name for the submenu (default: None)
+        """
+        self.submenus[title if title else submenu.name] = submenu
+
+    def toggle_submenu(self, submenu_name: str):
+        """
+        Navigate from current submenu to another one. Load it's MenuElements
+        and background. Call this method in your arcade.Window to change
+        submenu which is displayed - just pass the string name of desired
+        SubMenu object you registered into the Menu.
+
+        :param submenu_name: str -- name of the submenu to open
+        """
+        self.current_elements = self.submenus[submenu_name].elements
+        self.current_background = self.submenus[submenu_name].background
+
+    def update(self):
+        """Update all the Menu attributes values."""
+        for element in self.current_elements:
+            element.update()
+
+    def draw(self):
+        """
+        Display menu buttons and background accordingly to what 'submenu'
+        from self.submenus is currently active and set as self.current_submenu.
+        """
+        if self.current_background is not None:
+            width, height = self.application.width, self.application.height
+            arcade.draw_texture_rectangle(width / 2, height / 2, width, height,
+                                          self.current_background)
+
+        for element in self.current_elements:
+            element.draw()
 
 
 class MenuElement:
@@ -625,15 +629,15 @@ class Button(MenuElement):
 
 class Slider(MenuElement):
     """
-    TODO: element sliding left and right when player mouse-drags on it [ ],
-     changing connected variable value [ ]
+    TODO: doctstring
     """
 
     def __init__(self,
-                 variable: SharedVariable,
-                 variable_name: str,
-                 variable_min: int or float,
-                 variable_max: int or float,
+                 object_: object,
+                 attribute: str,
+                 start_value: int or float or str or bool,
+                 attribute_min: int or float,
+                 attribute_max: int or float,
                  font: tuple = ("calibri", "arial"),
                  font_size: float = None,
                  pos_x: float = 0.0,
@@ -649,11 +653,16 @@ class Slider(MenuElement):
         and changing value of connected variable when it is slided. Left
         move decreases value, move to the right increases it.
 
-        :param variable_name: str -- name of the variable associated with the
-        Slider, displayed above it in Menu
-        :param variable_min: int or float -- minimum value of variable
+        :param object_: object -- instance of a class of which attribute you are
+         connecting with this Slider
+        :param attribute: str -- string name of the attribute you want to be
+         connected to this Slider and updated when Slider is moved. It will
+         also be the name displayed in the Menu above the Slider
+        :param start_value: int, float, str or bool -- value the attribute and
+         Slider should start with.
+        :param attribute_min: int or float -- minimum value of variable
         associated with the Slider
-        :param variable_max: int or float -- maximum value of variable
+        :param attribute_max: int or float -- maximum value of variable
         associated with the Slider
         :param font: tuple -- name of the font used for name of the Slider
         displayed above it
@@ -663,12 +672,10 @@ class Slider(MenuElement):
         :param pos_y: float -- y coordinate (default: 0.0)
         :param width: float -- width of the Slider (default: 400.0)
         :param height: float -- height of the Slider (default: 40.0)
-        :param variable: SharedVariable object -- object which is associated
-        with the value of the Slider
         :param function: callable -- a function which would be called when
         Slider is released after being moved
         """
-        super().__init__(variable_name, pos_x, pos_y, function)
+        super().__init__(attribute, pos_x, pos_y, function)
 
         self.width = width
         self.height = height
@@ -677,10 +684,11 @@ class Slider(MenuElement):
         self.top = self.center_y + (self.height / 2)
         self.bottom = self.top - self.height
 
-        self.variable = variable
-        self.variable_name = variable_name
-        self._variable_min = variable_min
-        self._variable_max = variable_max
+        self.variable = SharedVariable(start_value)
+        self.variable.add_associate(object_, attribute)
+        self.variable_name = attribute
+        self._variable_min = attribute_min
+        self._variable_max = attribute_max
         self.font = font
         self.font_size = font_size if font_size else self.height / 2
 
@@ -769,7 +777,7 @@ class CheckBox(MenuElement):
     can switch between two states: active or inactive and by so control the
     boolean value of some variable.
 
-    TODO: check-button widget [x][x][ ], test it [ ]
+    TODO: check-button widget [x][x][x], test it [ ]
     """
 
     class IndicatorShape:
@@ -804,7 +812,9 @@ class CheckBox(MenuElement):
                                       self.color, 3)
 
     def __init__(self,
-                 variable: SharedVariable,
+                 object: object,
+                 attribute: str,
+                 start_value: bool or int or float or str,
                  checked_value=None,
                  unchecked_value=None,
                  name: str = "CheckBox",
@@ -822,10 +832,13 @@ class CheckBox(MenuElement):
         """
         Initialize new CheckBox element.
 
-        :param variable: SharedVariable -- a SharedVariable instance which
-        value will be controlled by this CheckBox, default variable type is
-        boolean.
-
+        :param object: object -- instance of a class of which attribute you are
+         connecting with this Slider
+        :param attribute: str -- string name of the attribute you want to be
+         connected to this Slider and updated when Slider is moved. It will
+         also be the name displayed in the Menu above the Slider
+        :param start_value: int, float, str or bool -- value the attribute and
+         Slider should start with.
         :param checked_value: object -- alternative value assigned to the
         variable if CheckBox is checked
         :param unchecked_value: object -- alternative value assigned to the
@@ -854,7 +867,9 @@ class CheckBox(MenuElement):
         super().__init__(name, pos_x, pos_y, function)
 
         self.state = state  # inner state of the GUI element
-        self.variable = variable  # variable controlled by the inner state
+        # variable controlled by the inner state:
+        self.variable = SharedVariable(start_value)
+        self.variable.add_associate(object, attribute)
         self.no_value = False if unchecked_value is None else unchecked_value
         self.yes_value = True if checked_value is None else checked_value
 
@@ -867,8 +882,11 @@ class CheckBox(MenuElement):
         self.top = self.center_y + (self.box_size / 2)
         self.bottom = self.top - self.box_size
 
-        self.indicator = CheckBox.IndicatorShape(pos_x, pos_y, self.box_size,
-                                                 shape, indicator_color,
+        self.indicator = CheckBox.IndicatorShape(pos_x,
+                                                 pos_y,
+                                                 self.box_size,
+                                                 shape,
+                                                 indicator_color,
                                                  indicator_texture)
 
     def check_if_cursor_above(self, cursor_x: float, cursor_y: float):

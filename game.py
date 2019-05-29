@@ -641,7 +641,7 @@ class Hostile(Spaceship):
             self.evade()
 
         if (not self.avoiding or not self.targeted_position) \
-            and random.randint(1, 100) > 75: self.maneuvre()
+                and random.randint(1, 100) > 75: self.maneuvre()
 
         if not self.avoiding or not self.targeted_position:
             self.aim_at_player()
@@ -695,7 +695,7 @@ class Hostile(Spaceship):
         Makes ship doing random maneuvers to add mess to hostiles movement.
         """
         min_distance, max_distance = hostiles[MIN_DISTANCE][self.model], \
-            hostiles[MAX_DISTANCE][self.model]
+                                     hostiles[MAX_DISTANCE][self.model]
         target_x, target_y = (random.randint(MARGIN, SCREEN_WIDTH - MARGIN),
                               SCREEN_HEIGHT * random.uniform(min_distance,
                                                              max_distance))
@@ -790,7 +790,7 @@ class Hostile(Spaceship):
         """
         chance = (POWERUP_CHANCE
                   + hostiles[SCORES][self.model] / 10
-                  - game.difficulty.value
+                  - game.difficulty
                   + (game.game_time - PowerUp.last_spawn) / FPS)
 
         if random.randint(1, 100) <= chance:
@@ -833,12 +833,8 @@ class Projectile(SpaceObject):
         :return: float, float -- x and y velocities
         """
         velocity = weapons[SPEED][self.type_]
-        if 90 >= self.angle > 0:
-            change_y = math.cos(math.radians(self.angle))
-            change_x = -math.sin(math.radians(self.angle))
-        else:
-            change_y = math.cos(math.radians(self.angle))
-            change_x = -math.sin(math.radians(self.angle))
+        change_y = math.cos(math.radians(self.angle))
+        change_x = -math.sin(math.radians(self.angle))
         return change_x * velocity, change_y * velocity
 
     def update(self):
@@ -1006,7 +1002,7 @@ class Game(arcade.Window):
         arcade.set_background_color(BACKGROUND_COLOR)
         self.set_update_rate(1 / FPS)
 
-        self.difficulty = SharedVariable(0, [])
+        self.difficulty = 0
         self.next_difficulty_raise = 0
 
         # Additional elements displayed on the screen:
@@ -1042,7 +1038,7 @@ class Game(arcade.Window):
         self.new_score_index = None
         # game mode in which stronger enemies are spawned in larger amounts
         # when time flows:
-        self.challenge_mode = SharedVariable(True, [])
+        self.challenge_mode = SharedVariable(True)
         self.god_mode = False
 
         if not test:
@@ -1103,12 +1099,16 @@ class Game(arcade.Window):
         return elements, background
 
     def create_options_submenu(self):
-        difficulty_slider = Slider(pos_x=SCREEN_WIDTH / 2,
-                                   pos_y=SCREEN_HEIGHT / 2,
-                                   variable=self.difficulty,
-                                   variable_name="difficulty", variable_min=0,
-                                   variable_max=10)
-        arcade_checkbox = CheckBox(variable=self.challenge_mode,
+        difficulty_slider = Slider(object_=self,
+                                   attribute="difficulty",
+                                   start_value=self.difficulty,
+                                   attribute_min=0,
+                                   attribute_max=10,
+                                   pos_x=SCREEN_WIDTH / 2,
+                                   pos_y=SCREEN_HEIGHT / 2)
+        arcade_checkbox = CheckBox(object=self,
+                                   attribute="challenge_mode",
+                                   start_value=self.challenge_mode,
                                    pos_x=SCREEN_WIDTH / 2,
                                    pos_y=SCREEN_HEIGHT / 1.5)
         elements = [
@@ -1131,7 +1131,7 @@ class Game(arcade.Window):
         self.next_difficulty_raise = 30 * FPS
 
         self.players, self.hostiles, self.projectiles, self.powerups, \
-            self.turrets, self.explosions = self.create_spritelists()
+        self.turrets, self.explosions = self.create_spritelists()
 
         self.sprites_lists = [self.players, self.hostiles, self.projectiles,
                               self.powerups, self.turrets, self.explosions]
@@ -1240,7 +1240,7 @@ class Game(arcade.Window):
         Create enemy spaceship and place it on the upper border of the screen.
         Also put into the self.hostiles.
         """
-        hostile = Hostile(self.difficulty.value)
+        hostile = Hostile(self.difficulty)
         hostile.center_y = SCREEN_HEIGHT - MARGIN
         hostile.center_x = random.randint(MARGIN, SCREEN_WIDTH - MARGIN)
         hostile.angle = DOWNWARD
@@ -1252,7 +1252,7 @@ class Game(arcade.Window):
 
         :return: bool -- should the game spawn new enemy?
         """
-        max_rating = 5 + self.difficulty.value
+        max_rating = 5 + self.difficulty
         return sum([hostiles[RATINGS][hostile.model] for hostile in
                     self.hostiles]) < max_rating
 
@@ -1262,7 +1262,7 @@ class Game(arcade.Window):
 
         :return: bool -- if game difficulty should be raised
         """
-        condition_a = self.difficulty.value <= len(hostiles[HOSTILES])
+        condition_a = self.difficulty <= len(hostiles[HOSTILES])
         condition_b = self.game_time >= self.next_difficulty_raise
         return condition_a and condition_b
 
@@ -1271,7 +1271,7 @@ class Game(arcade.Window):
         Raise the level of self.difficulty by 1. Game difficulty changes power
         and amount of spawned enemies.
         """
-        self.difficulty.value += 1
+        self.difficulty += 1
         self.next_difficulty_raise += self.next_difficulty_raise
         self.create_hint("ESCALATION!",
                          pos_y=SCREEN_HEIGHT * 0.6,
@@ -1390,7 +1390,7 @@ class Game(arcade.Window):
 
                 # TODO: spawning bosses [ ], laser overheating [ ]
 
-                if self.challenge_mode.value and self.if_difficulty_to_low():
+                if self.challenge_mode and self.if_difficulty_to_low():
                     self.raise_difficulty()
 
                 for sprite_list in self.sprites_lists:
@@ -1487,7 +1487,7 @@ class Game(arcade.Window):
         Cease this functionality to Cursor.on_mouse_drag() method.
         """
         self.on_mouse_motion(x, y, dx, dy)
-        self.cursor.on_mouse_drag(x, y, dx, dy, buttons, modifiers)
+        self.cursor.on_mouse_drag(dx)
 
     def on_key_press(self, key: int, modifiers: int):
         """
