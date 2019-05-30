@@ -1,0 +1,47 @@
+# game_config.txt
+# Config file for the game. Do not delete nor rename this file!
+# WARNING: modifying this file could crash or break the game! Make a backup!
+
+settings:
+
+player_config:
+textures = [player_ship, player_ship_W, player_ship_WD, player_ship_WA, player_ship_A, player_ship_D, player_ship_S, player_ship_SD, player_ship_SA, player_ship_shield, player_ship_hit]
+# speeds are hardcoded in game logic, this value should be used as modifier
+# eg. if you want the ship to be twice as fast, set this value to 2 etc.
+speed = 1
+weapon = player_laser_blue
+rockets = 1
+shield = 0
+
+enemies_config:
+
+hostiles = [hostile_ship_1, hostile_ship_2, hostile_ship_3, hostile_ship_4]
+preferred_min_distance = {hostile_ship_1: 0.5, hostile_ship_2: 0.6, hostile_ship_3: 0.7, hostile_ship_4: 0.5}
+preferred_max_distance = {hostile_ship_1: 0.9, hostile_ship_2: 0.8, hostile_ship_3: 0.8, hostile_ship_4: 0.9}
+ratings = {hostile_ship_1: 1, hostile_ship_2: 2, hostile_ship_3: 4, hostile_ship_4: 5}
+speed = {hostile_ship_1: 0.8, hostile_ship_2: 0.7, hostile_ship_3: 0.6, hostile_ship_4: 0.5}
+health = {hostile_ship_1: 10, hostile_ship_2: 10, hostile_ship_3: 20, hostile_ship_4: 20}
+shield = {hostile_ship_1: 0, hostile_ship_2: 20, hostile_ship_3: 30, hostile_ship_4: 40}
+scores = {hostile_ship_1: 10, hostile_ship_2: 25, hostile_ship_3: 50, hostile_ship_4: 75}
+# IMPORTANT: for each enemy, first value (before comma) means number of guns, second (after comma) is the type of weapon.
+weapon = {hostile_ship_1: [1, hostile_laser_red], hostile_ship_2: [2, hostile_laser_red], hostile_ship_3: [2, hostile_laser_red], hostile_ship_4: [1, hostile_laser_red]}
+# IMPORTANT: distinct turrets of a ship must be separated with | symbol.
+turrets = {hostile_ship_4: [turret_small, hostile_laser_red, 0, -12, 90, 1]}
+rockets = {hostile_ship_1: 0, hostile_ship_2: 0, hostile_ship_3: 0}
+
+weapons_config:
+
+damages = {player_laser_blue: 10, hostile_laser_red: 10, player_rocket: 50, hostile_rocket: 40, player_autocannon: 10, hostile_autocannon: 10}
+rof = {player_laser_blue: 5, hostile_laser_red: 5, player_rocket: 60, hostile_rocket: 60, player_autocannon: 10, hostile_autocannon: 10}
+# how fast shots fired from the gun would go toward the enemy:
+speed = {player_laser_blue: 30, hostile_laser_red: 30, player_rocket: 15, hostile_rocket: 15, player_autocannon: 20, hostile_autocannon: 20}
+sounds = {player_laser_blue: laser_shot.wav, hostile_laser_red: laser_shot.wav, player_rocket: rocket.wav, hostile_rocket: rocket.wav, player_autocannon: autocannon.wav, hostile_autocannon: autocannon.wav}
+kinetics = [player_autocannon, hostile_autocannon]
+lasers = [player_laser_blue, hostile_laser_red]
+rockets = [hostile_rocket, player_rocket]
+
+levels_config:
+
+powerups_config:
+
+powerups = [powerup_rockets_1, powerup_rockets_2, powerup_rockets_3, powerup_laser_dual, powerup_laser_fast, powerup_shield]
