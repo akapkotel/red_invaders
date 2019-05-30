@@ -27,6 +27,7 @@ import pyautogui
 from functools import partial
 from simple_arcade_menu import SharedVariable, Cursor, Menu, SubMenu, Button, \
     Slider, CheckBox
+from config_loader.config_loader import load_config_from_file
 
 
 # constants:
@@ -48,6 +49,7 @@ PATH = os.path.dirname(os.path.abspath(__file__))  # os.getcwd()
 GRAPHICS_PATH = PATH + "/graphics/"
 SOUNDS_PATH = PATH + "/sounds/"
 CONFIG_PATH = PATH + "/config_files/"
+CONFIG_FILE = "game_config.txt"
 SCORES_FILE = "best_scores.data"
 SPACESHIP_SPEED = 15
 SPACESHIP_STRAFE = 10
@@ -73,27 +75,9 @@ LASERS, DAMAGES, SOUNDS, TYPES = "lasers", "damages", "sounds", "types"
 ROF, KINETIC = "rof", "kinetics"
 MAIN_MENU, INSTRUCTIONS, OPTIONS_MENU = "main", "instructions_menu", "options"
 MIN_DISTANCE, MAX_DISTANCE = "preferred_min_distance", "preferred_max_distance"
-
-
-def get_image_path(filename: str):
-    """
-    Produce TESTS_PATH to the texture, which name is provided as parameter.
-
-    :param filename: str -- name of the texture file to be loaded without
-    extension
-    :return: str -- absolute TESTS_PATH of texture
-    """
-    return GRAPHICS_PATH + filename + ".png"
-
-
-def get_sound_path(filename: str):
-    """
-    Produce TESTS_PATH to the sound file, which name is provided as parameter.
-
-    :param filename: str -- name of the sound file
-    :return: str -- absolute TESTS_PATH of sound file
-    """
-    return SOUNDS_PATH + filename
+for _ in ("game", "settings", "player", "hostiles", "weapons", "levels",
+          "powerups"):
+    globals()[_] = None
 
 
 def load_config_files(path: str = CONFIG_PATH):
@@ -108,7 +92,6 @@ def load_config_files(path: str = CONFIG_PATH):
     Game class.
     Argument 'TESTS_PATH' is required in case of unit testing - alternative
     TESTS_PATH to testing config files could be passed.
-
     :return: dicts of lists and dicts -- various game-data in order: player,
     hostiles, powerups, levels, weapons
     """
@@ -220,6 +203,27 @@ def load_config_files(path: str = CONFIG_PATH):
     return player_data, hostiles_data, powerups_data, levels_data, weapons_data
 
 
+def get_image_path(filename: str):
+    """
+    Produce TESTS_PATH to the texture, which name is provided as parameter.
+
+    :param filename: str -- name of the texture file to be loaded without
+    extension
+    :return: str -- absolute TESTS_PATH of texture
+    """
+    return GRAPHICS_PATH + filename + ".png"
+
+
+def get_sound_path(filename: str):
+    """
+    Produce TESTS_PATH to the sound file, which name is provided as parameter.
+
+    :param filename: str -- name of the sound file
+    :return: str -- absolute TESTS_PATH of sound file
+    """
+    return SOUNDS_PATH + filename
+
+
 def load_sounds():
     """
     Load all required game sounds as arcade.sound objects and save references
@@ -243,7 +247,7 @@ def play_sound(sound: str):
     """
     if sound == EXPLOSION:
         sound = random.choice(("explosion", "explosion_2"))
-    arcade.play_sound(globals()[sound])
+    arcade.play_sound(globals()[sound.strip(".wav")])
     # TODO: test if all sounds plays correctly [x][x][ ]
 
 
@@ -933,7 +937,7 @@ class PowerUp(SpaceObject):
     last_spawn = 0  # spawn time kept to update spawning chance
 
     def __init__(self, pos_x: float, pos_y: float):
-        self.type_ = random.choice(powerups)
+        self.type_ = random.choice(powerups[POWERUPS])
         super().__init__("powerups/" + self.type_)
         self.center_x = pos_x
         self.center_y = pos_y
@@ -1106,7 +1110,7 @@ class Game(arcade.Window):
                                    attribute_max=10,
                                    pos_x=SCREEN_WIDTH / 2,
                                    pos_y=SCREEN_HEIGHT / 2)
-        arcade_checkbox = CheckBox(object=self,
+        arcade_checkbox = CheckBox(object_=self,
                                    attribute="challenge_mode",
                                    start_value=self.challenge_mode,
                                    pos_x=SCREEN_WIDTH / 2,
@@ -1714,8 +1718,9 @@ def run_game():
     Actual entry point of the game.py required in case of initializing script
     from other script.
     """
-    global game, player, hostiles, powerups, levels, weapons
-    player, hostiles, powerups, levels, weapons = load_config_files()
+    global game, settings,player, hostiles, powerups, levels, weapons
+    settings, player, hostiles, weapons, levels, powerups = \
+        load_config_from_file(CONFIG_PATH, CONFIG_FILE)
     game = Game(SCREEN_WIDTH, SCREEN_HEIGHT, TITLE, False, True)
     arcade.run()
 
