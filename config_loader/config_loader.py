@@ -48,10 +48,10 @@ def convert_unloaded(unpacked_file: list):
     """
     configs, category, subcategory, data = [], None, None, None
     for line in unpacked_file:
-        if line.endswith(":"):
+        if line.endswith(":") or line.endswith("EOF"):
             if category is not None: configs.append(locals()[category])
             category = line.strip(":")
-            #print("Category:", category)
+            print("Category:", category)
             locals()[category] = {}
         else:
             subcategory = line.split(" = ")[0]
@@ -76,9 +76,13 @@ def unpack_list(string_: str):
     :param string_: str -- string to be unpacked into the list
     """
     list_ = []
-    elements = string_.strip("[]").split(", ")
+    string2 = string_.replace("[", "", 1).strip("]")
+    elements = string2.split("], ") if "[" in string2 else string2.split(", ")
     for _ in elements:
-        list_.append(get_type(_)(_))
+        if _.startswith("["):
+            list_.append(unpack_list(_))
+        else:
+            list_.append(get_type(_)(_))
     return list_
 
 
@@ -89,8 +93,8 @@ def unpack_dict(string_: str):
     :param string_: str -- string to be unpacked into the dict
     """
     dict_ = {}
-    striped = string_.strip("{}")
-    elements = striped.split("], ") if "[" in striped else striped.split(", ")
+    string2 = string_.strip("{}")
+    elements = string2.split("], ") if "[" in string2 else string2.split(", ")
     for _ in elements:
         #print(_)
         key, value = _.split(": ")[0], _.split(": ")[1]
@@ -103,9 +107,13 @@ def unpack_dict(string_: str):
 
 def get_type(string_: str):
     """Find type into which provided string should be casted."""
-    if string_.replace(".", "").isdigit():
+    if "." in string_ and string_.replace(".", "").isdigit():
         return float
-    elif string_.isdigit():
+    elif string_.replace("-", "").isdigit():
         return int
     else:
         return str
+
+
+if __name__ == '__main__':
+    print("Is your config_loader in proper directory?")
