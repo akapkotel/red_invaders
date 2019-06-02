@@ -29,7 +29,6 @@ from simple_arcade_menu import SharedVariable, Cursor, Menu, SubMenu, Button, \
     Slider, CheckBox
 from config_loader.config_loader import load_config_from_file
 
-
 # constants:
 TITLE = "Red Invaders"
 # TODO: adjustment o window size to the different screen sizes [ ]
@@ -60,9 +59,9 @@ TURRETS, TURRET_SMALL = "turrets", "turret_small"
 UPWARD = 0.0
 DOWNWARD = 180.0
 EXPLOSION = "explosion_sound"
-HIT_SOUND = "hit"
+HIT_SOUND = "hit.wav"
 ROCKET_SOUND = "rocket"
-POWERUP_SOUND = "powerup"
+POWERUP_SOUND = "powerup.wav"
 POWERUP_TIME = 1800
 POWERUP_CHANCE = 0
 POWERUP_ROCKETS_1, POWERUP_ROCKETS_2 = "powerup_rockets_1", "powerup_rockets_2"
@@ -78,6 +77,8 @@ MIN_DISTANCE, MAX_DISTANCE = "preferred_min_distance", "preferred_max_distance"
 for _ in ("game", "settings", "player", "hostiles", "weapons", "levels",
           "powerups"):
     globals()[_] = None
+# global dict of sounds used in game:
+sounds = {}
 
 
 def get_image_path(filename: str):
@@ -101,31 +102,15 @@ def get_sound_path(filename: str):
     return SOUNDS_PATH + filename
 
 
-def load_sounds():
-    """
-    Load all required game sounds as arcade.sound objects and save references
-    to them as global variables to be used during the game. Sounds are detected
-    automatically, so do not put to the 'sounds' directory any files without
-    the .wav extension.
-    """
-    if os.path.isdir(SOUNDS_PATH):
-        for soundfile in os.listdir(SOUNDS_PATH):
-            if soundfile.endswith('wav'):
-                file_name = os.path.basename(PATH + '/' + soundfile)
-                globals()[os.path.splitext(file_name)[0]] = arcade.load_sound(
-                    get_sound_path(file_name))
-
-
 def play_sound(sound: str):
     """
     Play sound by arcade.sound module. Sounds are global arcade.sound objects.
 
     :param sound: str -- name of the sound file without .wav extension
     """
-    if sound == EXPLOSION:
-        sound = random.choice(("explosion", "explosion_2"))
-    arcade.play_sound(globals()[sound.strip(".wav")])
-    # TODO: test if all sounds plays correctly [x][x][ ]
+    if sound not in sounds.keys():
+        sounds[sound] = arcade.load_sound(get_sound_path(sound))
+    arcade.play_sound(sounds[sound])
 
 
 class SpaceObject(arcade.Sprite):
@@ -522,7 +507,7 @@ class Hostile(Spaceship):
             self.evade()
 
         if (not self.avoiding or not self.targeted_position) \
-                and random.randint(1, 100) > 75: self.maneuvre()
+            and random.randint(1, 100) > 75: self.maneuvre()
 
         if not self.avoiding or not self.targeted_position:
             self.aim_at_player()
@@ -576,7 +561,7 @@ class Hostile(Spaceship):
         Makes ship doing random maneuvers to add mess to hostiles movement.
         """
         min_distance, max_distance = hostiles[MIN_DISTANCE][self.model], \
-                                     hostiles[MAX_DISTANCE][self.model]
+            hostiles[MAX_DISTANCE][self.model]
         target_x, target_y = (random.randint(MARGIN, SCREEN_WIDTH - MARGIN),
                               SCREEN_HEIGHT * random.uniform(min_distance,
                                                              max_distance))
@@ -713,9 +698,10 @@ class Projectile(SpaceObject):
 
         :return: float, float -- x and y velocities
         """
+        radians = math.radians(self.angle)
         velocity = weapons[SPEED][self.type_]
-        change_y = math.cos(math.radians(self.angle))
-        change_x = -math.sin(math.radians(self.angle))
+        change_y = math.cos(radians)
+        change_x = -math.sin(radians)
         return change_x * velocity, change_y * velocity
 
     def update(self):
@@ -838,25 +824,28 @@ class Explosion(SpaceObject):
     This object is spawned when something explodes.
     """
 
+    textures_list = []
+    for i in range(1, 40):
+        tex = f"explosion/explosion{i:04d}"
+        textures_list.append(arcade.load_texture(get_image_path(tex)))
+
     def __init__(self, x, y):
         super().__init__("explosion/explosion0000")
 
-        for i in range(1, 40):
-            zeros = "000" if i < 10 else "00"
-            tex = "explosion/explosion" + zeros + str(i)
-            self.append_texture(arcade.load_texture(get_image_path(tex)))
+        self.textures = Explosion.textures_list
 
         self.center_y = y
         self.center_x = x
-        self.set_texture(0)
+        self.current_texture = 0
         self.detonation = int(game.game_time)
-        play_sound(EXPLOSION)
+        play_sound(random.choice(("explosion.wav", "explosion_2.wav")))
 
     def update(self):
         super().update()
-        tex_index = int(game.game_time - self.detonation)
-        self.set_texture(tex_index)
-        if tex_index == 39:
+        self.current_texture += 1
+        if self.current_texture < len(self.textures):
+            self.set_texture(self.current_texture)
+        else:
             self.kill()
 
 
@@ -1012,7 +1001,7 @@ class Game(arcade.Window):
         self.next_difficulty_raise = 30 * FPS
 
         self.players, self.hostiles, self.projectiles, self.powerups, \
-        self.turrets, self.explosions = self.create_spritelists()
+            self.turrets, self.explosions = self.create_spritelists()
 
         self.sprites_lists = [self.players, self.hostiles, self.projectiles,
                               self.powerups, self.turrets, self.explosions]
@@ -1390,7 +1379,7 @@ class Game(arcade.Window):
         else:
             if key == arcade.key.P or key == arcade.key.PAUSE:
                 self.toggle_pause()
-            if not self.paused:
+            if not (self.paused or self.in_menu):
                 if key == arcade.key.W or key == arcade.key.UP:
                     self.player.vertical = PlayerShip.UP
                 if key == arcade.key.S or key == arcade.key.DOWN:
@@ -1438,7 +1427,7 @@ class Game(arcade.Window):
         :param int key: Key that was hit
         :param int modifiers: If it was shift/ctrl/alt
         """
-        if not self.paused and self.players:
+        if not (self.paused or self.in_menu) and self.players:
             if key == arcade.key.W or key == arcade.key.UP:
                 self.player.vertical = PlayerShip.STOP
             if key == arcade.key.S or key == arcade.key.DOWN:
@@ -1595,7 +1584,7 @@ def run_game():
     Actual entry point of the game.py required in case of initializing script
     from other script.
     """
-    global game, settings,player, hostiles, powerups, levels, weapons
+    global game, settings, player, hostiles, powerups, levels, weapons
     settings, player, hostiles, weapons, levels, powerups = \
         load_config_from_file(CONFIG_PATH, CONFIG_FILE)
     game = Game(SCREEN_WIDTH, SCREEN_HEIGHT, TITLE, False, True)
