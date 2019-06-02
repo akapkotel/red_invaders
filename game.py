@@ -1021,8 +1021,6 @@ class Game(arcade.Window):
         self.should_display_scores = False
         self.new_score_index = None
 
-        load_sounds()
-
     def show_options_menu(self):
         """Navigate to the options section in game menu."""
         self.menu.toggle_submenu(OPTIONS_MENU)
