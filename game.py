@@ -25,6 +25,7 @@ import arcade
 import pyautogui
 
 from functools import partial
+
 from simple_arcade_menu import SharedVariable, Cursor, Menu, SubMenu, Button, \
     Slider, CheckBox
 from config_loader.config_loader import load_config_from_file
@@ -41,8 +42,8 @@ BACKGROUND_SPEED = 0.3
 STARS_DENSITY = 1
 RED, WHITE = arcade.color.RED, arcade.color.WHITE
 YELLOW, BLUE = arcade.color.YELLOW_ORANGE, arcade.color.ELECTRIC_BLUE
-STARS_COLORS = (WHITE, WHITE, WHITE, WHITE, BLUE, BLUE, YELLOW, YELLOW, RED)
-STAR_SIZES = (1, 1, 1, 1, 2, 2, 3)
+STARS_COLORS = (WHITE,)*4 + (BLUE,)*2 + (YELLOW,)*2 + (RED,)
+STAR_SIZES = (1,)*4 + (2,)*2 + (3,)
 BACKGROUND_COLOR, GREEN = arcade.color.BLACK, arcade.color.BRIGHT_GREEN
 PATH = os.path.dirname(os.path.abspath(__file__))  # os.getcwd()
 GRAPHICS_PATH = PATH + "/graphics/"
@@ -89,6 +90,7 @@ def get_image_path(filename: str):
     extension
     :return: str -- absolute TESTS_PATH of texture
     """
+
     return GRAPHICS_PATH + filename + ".png"
 
 
@@ -880,7 +882,6 @@ class Game(arcade.Window):
         self.stars = None
         self.targets_markers = None
 
-        self.cursors = None
         self.players = None
         self.hostiles = None
         self.projectiles = None
@@ -1309,10 +1310,10 @@ class Game(arcade.Window):
         """
         Display hud information on the screen.
         """
-        output = f"Fired shots: {self.shots_fired}," \
-            f" Hit enemies: {self.hits}, Destroyed: {self.destroyed}," \
-            f"Rockets: {self.player.rockets}," \
-            f" Shield: {self.player.shield}, Score: {self.score}"
+        output = (f"Fired shots: {self.shots_fired},"
+                  f" Hit enemies: {self.hits}, Destroyed: {self.destroyed},"
+                  f"Rockets: {self.player.rockets},"
+                  f" Shield: {self.player.shield}, Score: {self.score}")
 
         if self.god_mode: output += ", Godmode: on"
 

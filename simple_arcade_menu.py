@@ -21,14 +21,16 @@ methods.
 
 SharedVariable:
 This class makes it possible to share a common value between many objects in
-the game and update them dynamically. Just assign the SharedVariable instance
-as variable value.
+the game and update them dynamically. Just use Slider or CheckBox which are
+creating SharedVariables themselves. Optionally, instantiate SharedVariable
+by yourself and use it's add_associate() method to connect it to the
+attribute of your game class.
 
 Menu:
 Menu class to work requires you to pass into it's constructor a single SubMenu
 object, which would be the main menu of your menu-system displayed first
-when player enters menu (e.g. starts the game). For Menu to work it is also
-required that a Cursor object is initialized - but SubMenu requires it too.
+when player enters menu (e.g. starts the game). For Menu and SUbMenu to work
+it is also required that a Cursor object is initialized.
 
 SubMenu:
 SubMenu class to work requires only a list of MenuElement objects (eg. Button),
@@ -48,7 +50,7 @@ MenuElement class (and all deriving from it, eg, Button) requires only being
 initialised with whatever functions passed to them as callbacks and after
 you create your Buttons, remember of passing them as a list to the Menu
 instance. Some classes deriving from MenuElement (e.g. Slider) requires
-SharedVariable objects to be passed as argument.
+SharedVariable imported also.
 
 So, the order of imports, instantiating classes and handling them in your game
 should be:
@@ -113,30 +115,43 @@ class SharedVariable:
     RadioButton elements of the Menu so when these are used, values of
     connected attributes change too.
 
-    SharedVariable is created automatically by the MenuElement which need it in
-    it's __init__ method. The value of class attribute this MenuElement is
-    connected to is passed as a value of the SharedElement and the instance of
-    that class is added to it's associated-objects list.
+    There are three ways of creating SharedVariable instance:
+    (1) Some of the MenuElements instantiate new SharedVariable
+    automatically in their __init__ if you do not pass any SharedVariable
+    instance as an argument. In that case you should:
+
+    Step 1: instantiate SharedVariable like variable = SharedVariable() to get
+    the reference to your SharedVariable object.
+    Step 2: instantiate MenuElement (e.g. Slider) and as the last argument
+    pass the SharedVariable already created.
+
+    (2) you can pass SharedVariable instance created by your own to these
+    MenuElements if you need to have your own reference for the future. If so:
+
+    Step 1: just instantiate new MenuElement (e.g. Slider) without any
+    instance of SharedVariable passed - it would be generated automatically
+    for you, but you will have no reference to it.
+
+    Either way object and it's attribute you pass to the MenuElement will be
+    associated to the new SharedVariable automatically.
 
     Each time the SharedVariable value changes (e.g. when Slider is moved in
     the Menu), value of attribute of the associated object is automatically
     updated too.
 
-    You can always add another 'associated' attribute f any object, using the
-    'add_associate()' method. You pass the object itself as a first argument,
-    and string name of the object's attribute you need to be associated as the
-    second argument.
+    Having a reference from (1) You can always add another 'associated'
+    attribute of any object, using the 'add_associate()' method. You pass the
+    object itself as a first argument, and string name of the object's
+    attribute you need to be associated as the second argument.
 
     You can also remove connection with 'remove_associate()' passing the
     object, which should be unassociated.
     """
-    # 'public' list of all the SharedVariable instances used by the Menu class:
-    shared_variables = []
 
     def __init__(self, value: bool or int or float or str):
         """
         SharedVariable is an internal object used to assure that value of
-        variables assigned to different objects in the application,  especially
+        variables assigned to different objects in the application, especially
         to the MenuElement objects and arcade.Window attributes, will be the
         same.
 
@@ -145,7 +160,6 @@ class SharedVariable:
         """
         self._value = value
         self.associated = {}
-        SharedVariable.shared_variables.append(self)
 
     @property
     def value(self):
@@ -204,6 +218,8 @@ class Cursor(arcade.Sprite):
         """
         Basic placeholder for a in-game cursor displayed instead of the user's
         system cursor.
+        Remember to call on_update() and draw() methods in your game update()
+        and draw() to assure that this Cursor will be updated and displayed!
 
         :param app_hook: arcade.Window object -- instance of arcade.Window
         class required for Menu functions to work with the app
@@ -264,10 +280,11 @@ class Cursor(arcade.Sprite):
         :param in_menu: bool -- if Menu object is currently displayed and
         Cursor should be updated
         """
-        if (self.application.cursor.menu_only and in_menu) or (
-        not self.application.cursor.menu_only):
+        if ((self.application.cursor.menu_only and in_menu) or
+                (not self.application.cursor.menu_only)):
             self.set_position(x, y)
-            self.check_if_above_menu_element()
+            if in_menu:
+                self.check_if_above_menu_element()
 
     def on_mouse_press(self, button: int, in_menu: bool):
         """
@@ -647,7 +664,8 @@ class Slider(MenuElement):
                  border_color: arcade.Color = BLACK,
                  slide_color: arcade.Color = GRAY,
                  slider_color: arcade.Color = WHITE,
-                 function: callable = None):
+                 function: callable = None,
+                 shared_variable: SharedVariable = None):
         """
         Basic slider - button moveable to some extent to the left and right,
         and changing value of connected variable when it is slided. Left
@@ -674,6 +692,9 @@ class Slider(MenuElement):
         :param height: float -- height of the Slider (default: 40.0)
         :param function: callable -- a function which would be called when
         Slider is released after being moved
+        :param shared_variable: SharedVariable -- optional SharedVariable
+        object if you want to have external reference to this object to add new
+        associated attributes later in your game script (default: None)
         """
         super().__init__(attribute, pos_x, pos_y, function)
 
@@ -684,7 +705,8 @@ class Slider(MenuElement):
         self.top = self.center_y + (self.height / 2)
         self.bottom = self.top - self.height
 
-        self.variable = SharedVariable(start_value)
+        self.variable = shared_variable if shared_variable is not None else \
+            SharedVariable(start_value)
         self.variable.add_associate(object_, attribute)
         self.variable_name = attribute
         self._variable_min = attribute_min
@@ -812,7 +834,7 @@ class CheckBox(MenuElement):
                                       self.color, 3)
 
     def __init__(self,
-                 object: object,
+                 object_: object,
                  attribute: str,
                  start_value: bool or int or float or str,
                  checked_value=None,
@@ -828,11 +850,12 @@ class CheckBox(MenuElement):
                  shape: str = "TICK",
                  checkbox_texture: arcade.Texture = None,
                  indicator_texture: arcade.Texture = None,
+                 shared_variable: SharedVariable = None,
                  ):
         """
         Initialize new CheckBox element.
 
-        :param object: object -- instance of a class of which attribute you are
+        :param object_: object -- instance of a class of which attribute you are
          connecting with this Slider
         :param attribute: str -- string name of the attribute you want to be
          connected to this Slider and updated when Slider is moved. It will
@@ -863,13 +886,18 @@ class CheckBox(MenuElement):
         (default: arcade.color.GREEN)
         :param indicator_texture: arcade.Texture -- alternatively you can set
         a texture
+        :param shared_variable: SharedVariable -- optional SharedVariable
+        object if you want to have external reference to this object to add new
+        associated attributes later in your game script (default: None)
         """
         super().__init__(name, pos_x, pos_y, function)
 
         self.state = state  # inner state of the GUI element
         # variable controlled by the inner state:
-        self.variable = SharedVariable(start_value)
-        self.variable.add_associate(object, attribute)
+
+        self.variable = shared_variable if shared_variable is not None else \
+            SharedVariable(start_value)
+        self.variable.add_associate(object_, attribute)
         self.no_value = False if unchecked_value is None else unchecked_value
         self.yes_value = True if checked_value is None else checked_value
 
