@@ -4,8 +4,15 @@
 
 settings:
 
+difficulty = 0
+challenge_mode = True
+fullscreen = False
+cheats_on = False
+sound_on = True
+
 player_config:
-textures = [player_ship, player_ship_W, player_ship_WD, player_ship_WA, player_ship_A, player_ship_D, player_ship_S, player_ship_SD, player_ship_SA, player_ship_shield, player_ship_hit]
+
+texture = [player_ship, player_ship_W, player_ship_WD, player_ship_WA, player_ship_A, player_ship_D, player_ship_S, player_ship_SD, player_ship_SA, player_ship_shield, player_ship_hit]
 # speeds are hardcoded in game logic, this value should be used as modifier
 # eg. if you want the ship to be twice as fast, set this value to 2 etc.
 speed = 1
@@ -26,7 +33,7 @@ scores = {hostile_ship_1: 10, hostile_ship_2: 25, hostile_ship_3: 50, hostile_sh
 # IMPORTANT: for each enemy, first value (before comma) means number of guns, second (after comma) is the type of weapon.
 weapon = {hostile_ship_1: [1, hostile_laser_red], hostile_ship_2: [2, hostile_laser_red], hostile_ship_3: [2, hostile_laser_red], hostile_ship_4: [1, hostile_laser_red]}
 # IMPORTANT: distinct turrets of a ship must be separated with | symbol.
-turrets = {hostile_ship_4: [turret_small, hostile_laser_red, 0, -12, 90, 1]}
+turrets = {hostile_ship_4: [[turret_small, hostile_laser_red, 0, -12, 90, 1]]}
 rockets = {hostile_ship_1: 0, hostile_ship_2: 0, hostile_ship_3: 0}
 
 weapons_config:
@@ -42,6 +49,10 @@ rockets = [hostile_rocket, player_rocket]
 
 levels_config:
 
+#TO BE DONE...
+
 powerups_config:
 
 powerups = [powerup_rockets_1, powerup_rockets_2, powerup_rockets_3, powerup_laser_dual, powerup_laser_fast, powerup_shield]
+
+EOF
