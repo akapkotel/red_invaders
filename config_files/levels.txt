@@ -1,3 +1,0 @@
-# hostiles.txt
-# Config file for enemies. Do not delete nor rename this file!
-# WARNING: modifying this file could crash or break the game! Make a backup!
