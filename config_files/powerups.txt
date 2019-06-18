@@ -1,5 +1,0 @@
-# hostiles.txt - do not rename this file
-# Config file for enemies. Do not delete this file!
-# WARNING: modifying this file could crash or break the game! Make a backup!
-
-powerups = powerup_rockets_1; powerup_rockets_2; powerup_rockets_3; powerup_laser_dual; powerup_laser_fast; powerup_shield
