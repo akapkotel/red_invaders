@@ -1,7 +1,7 @@
 arcade==2.0.8
 future==0.17.1
 numpy==1.16.3
-Pillow==6.2.0
+Pillow==9.0.0
 PyAutoGUI==0.9.42
 PyGetWindow==0.0.5
 pyglet==1.4.0b1
